@@ -13,8 +13,13 @@
  *     nvidia:     { apiKey: '', model: 'meta/llama-3.3-70b-instruct', customModel: '' }
  *   },
  *   workspace: '',
- *   makefunMode: false
+ *   makefunMode: false,
+ *   makefun: { kitDir: '', keypairPath: '', slug: '', repoUrl: '', title: '' }
  * }
+ *
+ * makefun.keypairPath is a PATH only (default ~/.makefun/
+ * makefun-keypair.json); the keypair file itself is read solely by the
+ * kit CLI at submit time, never by this app.
  *
  * API keys live ONLY in this local file and are sent ONLY to their own
  * provider's endpoint.
@@ -29,7 +34,13 @@ function defaultSettings() {
   for (const id of PROVIDER_ORDER) {
     providers[id] = { apiKey: '', model: defaultModel(id), customModel: '' };
   }
-  return { activeProvider: 'gemini', providers, workspace: '', makefunMode: false };
+  return {
+    activeProvider: 'gemini',
+    providers,
+    workspace: '',
+    makefunMode: false,
+    makefun: { kitDir: '', keypairPath: '', slug: '', repoUrl: '', title: '' },
+  };
 }
 
 function settingsPath(userDataDir) {
@@ -42,7 +53,11 @@ function loadSettings(userDataDir) {
   if (!fs.existsSync(file)) return base;
   try {
     const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-    const merged = { ...base, ...raw, providers: { ...base.providers } };
+    const merged = {
+      ...base, ...raw,
+      providers: { ...base.providers },
+      makefun: { ...base.makefun, ...(raw.makefun || {}) },
+    };
     for (const id of PROVIDER_ORDER) {
       if (raw.providers && raw.providers[id]) {
         merged.providers[id] = { ...base.providers[id], ...raw.providers[id] };
