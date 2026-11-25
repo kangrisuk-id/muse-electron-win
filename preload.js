@@ -17,6 +17,16 @@ contextBridge.exposeInMainWorld('api', {
   loadSession: (id) => ipcRenderer.invoke('session:load', id),
   sendChat: (text) => ipcRenderer.invoke('chat:send', text),
   abortChat: () => ipcRenderer.invoke('chat:abort'),
+  listMakefunSessions: () => ipcRenderer.invoke('makefun:sessions'),
+  selectKitDir: () => ipcRenderer.invoke('makefun:selectKit'),
+  makefunBundle: (args) => ipcRenderer.invoke('makefun:bundle', args),
+  makefunCheck: (args) => ipcRenderer.invoke('makefun:check', args),
+  makefunSubmit: (args) => ipcRenderer.invoke('makefun:submit', args),
+  onMakefunLog: (callback) => {
+    const listener = (_evt, data) => callback(data);
+    ipcRenderer.on('makefun:log', listener);
+    return () => ipcRenderer.removeListener('makefun:log', listener);
+  },
   onAgentEvent: (callback) => {
     const listener = (_evt, data) => callback(data);
     ipcRenderer.on('agent:event', listener);
