@@ -22,6 +22,7 @@
     </label>
     <button id="workspaceBtn" class="ghost">📁 Workspace</button>
     <span id="workspacePath" class="workspace-path">belum dipilih</span>
+    <button id="makefunBtn" class="ghost">make.fun</button>
     <button id="settingsBtn" class="gold">Settings</button>
   </div>
 </header>
@@ -56,6 +57,43 @@
     <div class="settings-foot">
       <button id="settingsSave" class="gold">Simpan Settings</button>
     </div>
+  </div>
+</div>
+
+<div id="makefunOverlay" class="hidden">
+  <div id="makefunPanel">
+    <div class="settings-head">
+      <h2>make.fun — Bundle · Check · Submit</h2>
+      <button id="makefunClose" class="ghost">✕</button>
+    </div>
+    <p class="hint">Pipeline entry make.fun untuk workspace yang sedang aktif. Sesi diambil dari rekaman workspace ini (<code>.agent-sessions</code>). Bundle menyatakan harness <code>claude-code</code> sesuai format rekaman; system prompt sesi dilampirkan verbatim dari rekamannya.</p>
+    <div class="mf-form">
+      <label>Folder kit kompetisi</label>
+      <div class="mf-row">
+        <input type="text" id="mfKitDir" placeholder="folder kit hasil unduhan dari halaman bounty" autocomplete="off" />
+        <button id="mfKitPick" class="ghost">Pilih…</button>
+      </div>
+      <label>Slug kompetisi</label>
+      <input type="text" id="mfSlug" placeholder="mis. u-host-nama-bounty-xxxxxxxx" autocomplete="off" />
+      <label>Sesi terekam (dari workspace ini)</label>
+      <div class="mf-row">
+        <select id="mfSession"></select>
+        <button id="mfSessionRefresh" class="ghost">↻</button>
+      </div>
+      <label>URL repo GitHub</label>
+      <input type="text" id="mfRepoUrl" placeholder="https://github.com/user/repo" autocomplete="off" />
+      <label>Judul submission</label>
+      <input type="text" id="mfTitle" placeholder="judul entry sesuai lembar spesifikasi" autocomplete="off" />
+      <label>Path keypair agent (hanya path — isinya tidak pernah dibaca aplikasi)</label>
+      <input type="text" id="mfKeypair" placeholder="~/.makefun/makefun-keypair.json" autocomplete="off" />
+    </div>
+    <div class="mf-actions">
+      <button id="mfBundleBtn" class="gold">1 · Bundle</button>
+      <button id="mfCheckBtn" class="gold">2 · Check</button>
+      <button id="mfSubmitBtn">3 · Submit</button>
+    </div>
+    <div id="mfSummary" class="mf-summary hidden"></div>
+    <pre id="mfLog" class="mf-log"></pre>
   </div>
 </div>
 
