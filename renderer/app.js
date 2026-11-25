@@ -177,6 +177,179 @@ async function send() {
   }
 }
 
+/* ------------------------------ make.fun ------------------------------ */
+
+let mfBusy = false;
+let mfSubmitArmed = false;
+let mfArmTimer = null;
+
+function mfLog(text, isErr) {
+  const pre = $('mfLog');
+  const span = document.createElement('span');
+  if (isErr) span.className = 'err';
+  span.textContent = text + '\n';
+  pre.appendChild(span);
+  pre.scrollTop = pre.scrollHeight;
+}
+
+function mfSummary(text, kind) {
+  const box = $('mfSummary');
+  box.textContent = text;
+  box.className = 'mf-summary' + (kind ? ' ' + kind : '');
+}
+
+function mfDisarm() {
+  mfSubmitArmed = false;
+  if (mfArmTimer) { clearTimeout(mfArmTimer); mfArmTimer = null; }
+  const btn = $('mfSubmitBtn');
+  btn.classList.remove('armed');
+  btn.textContent = '3 · Submit';
+}
+
+function mfSetBusy(busy) {
+  mfBusy = busy;
+  for (const id of ['mfBundleBtn', 'mfCheckBtn', 'mfSubmitBtn']) $(id).disabled = busy;
+}
+
+function mfCollect() {
+  if (!settings.makefun) settings.makefun = {};
+  settings.makefun.kitDir = $('mfKitDir').value.trim();
+  settings.makefun.slug = $('mfSlug').value.trim();
+  settings.makefun.repoUrl = $('mfRepoUrl').value.trim();
+  settings.makefun.title = $('mfTitle').value.trim();
+  settings.makefun.keypairPath = $('mfKeypair').value.trim();
+  return settings.makefun;
+}
+
+async function mfPersist() {
+  mfCollect();
+  settings = await window.api.saveSettings(settings);
+}
+
+async function refreshMfSessions() {
+  const list = await window.api.listMakefunSessions();
+  const sel = $('mfSession');
+  sel.innerHTML = '';
+  if (!list.length) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = '(belum ada sesi terekam di workspace ini)';
+    sel.appendChild(opt);
+    return;
+  }
+  for (const s of list) {
+    const opt = document.createElement('option');
+    opt.value = s.file;
+    const when = s.createdAt ? new Date(s.createdAt).toLocaleString('id-ID') : '';
+    opt.textContent = when + ' · ' + (s.provider || '?') + '/' + (s.model || '?') + ' · ' + (s.preview || '(tanpa prompt)');
+    sel.appendChild(opt);
+  }
+}
+
+async function openMakefun() {
+  const mf = settings.makefun || {};
+  $('mfKitDir').value = mf.kitDir || '';
+  $('mfSlug').value = mf.slug || '';
+  $('mfRepoUrl').value = mf.repoUrl || '';
+  $('mfTitle').value = mf.title || '';
+  $('mfKeypair').value = mf.keypairPath || '';
+  mfDisarm();
+  await refreshMfSessions();
+  $('makefunOverlay').classList.remove('hidden');
+}
+
+function mfRequireKit() {
+  const kitDir = $('mfKitDir').value.trim();
+  if (!kitDir) throw new Error('Isi folder kit dulu.');
+  return kitDir;
+}
+
+async function mfBundle() {
+  if (mfBusy) return;
+  mfDisarm();
+  try {
+    const kitDir = mfRequireKit();
+    const sessionFile = $('mfSession').value;
+    if (!sessionFile) throw new Error('Tidak ada sesi terekam untuk di-bundle.');
+    await mfPersist();
+    mfSetBusy(true);
+    mfSummary('Membuat bundle…', '');
+    const res = await window.api.makefunBundle({ kitDir, sessionFile });
+    if (res.code === 0) {
+      mfSummary('Bundle selesai: ' + res.outPath + '\nDinyatakan: harness claude-code · provider ' + res.vendor + ' · model ' + res.model, 'ok');
+    } else {
+      mfSummary('Bundle GAGAL (exit ' + res.code + ') — baca log di bawah; pesan CLI ditampilkan apa adanya.', 'bad');
+    }
+  } catch (err) {
+    mfSummary('Error: ' + (err && err.message ? err.message : String(err)), 'bad');
+  } finally {
+    mfSetBusy(false);
+  }
+}
+
+async function mfCheck() {
+  if (mfBusy) return;
+  mfDisarm();
+  try {
+    const kitDir = mfRequireKit();
+    await mfPersist();
+    mfSetBusy(true);
+    mfSummary('Menjalankan check lokal…', '');
+    const res = await window.api.makefunCheck({ kitDir });
+    const p = res.parsed || {};
+    let text = 'Check: ' + p.passed + ' passed · ' + p.failed + ' failed · ' +
+      p.skipped + ' skipped · ' + p.atSubmission + ' at submission';
+    if (p.failedNames && p.failedNames.length) text += '\nGagal: ' + p.failedNames.join(', ');
+    if (p.verdictLine) text += '\n' + p.verdictLine;
+    mfSummary(text, p.ok && res.code === 0 ? 'ok' : 'bad');
+  } catch (err) {
+    mfSummary('Error: ' + (err && err.message ? err.message : String(err)), 'bad');
+  } finally {
+    mfSetBusy(false);
+  }
+}
+
+async function mfSubmit() {
+  if (mfBusy) return;
+  // Two-step confirm: the first click only arms the button; a second,
+  // deliberate click within 15 seconds performs the submission. Any
+  // other action (or the timeout) disarms it.
+  if (!mfSubmitArmed) {
+    mfSubmitArmed = true;
+    const btn = $('mfSubmitBtn');
+    btn.classList.add('armed');
+    btn.textContent = '⚠ Klik lagi untuk BENAR-BENAR submit';
+    mfSummary('Submit mengirim entry ke make.fun dan tidak bisa dibatalkan dari aplikasi. Klik tombol Submit sekali lagi untuk melanjutkan, atau lakukan hal lain untuk membatalkan.', 'bad');
+    mfArmTimer = setTimeout(mfDisarm, 15000);
+    return;
+  }
+  mfDisarm();
+  try {
+    const kitDir = mfRequireKit();
+    const slug = $('mfSlug').value.trim();
+    const repoUrl = $('mfRepoUrl').value.trim();
+    const title = $('mfTitle').value.trim();
+    if (!slug) throw new Error('Isi slug kompetisi dulu.');
+    if (!repoUrl) throw new Error('Isi URL repo dulu.');
+    if (!title) throw new Error('Isi judul submission dulu.');
+    await mfPersist();
+    mfSetBusy(true);
+    mfSummary('Mengirim submission…', '');
+    const res = await window.api.makefunSubmit({ kitDir, slug, repoUrl, title });
+    if (res.code === 0 && res.submissionId) {
+      mfSummary('SUBMITTED ✓\nSubmission: ' + res.submissionId +
+        (res.claimCode ? '\nClaim code: ' + res.claimCode : '') +
+        (res.checkedLine ? '\n' + res.checkedLine : ''), 'ok');
+    } else {
+      mfSummary('Submit GAGAL (exit ' + res.code + ') — baca log di bawah; pesan CLI ditampilkan apa adanya.', 'bad');
+    }
+  } catch (err) {
+    mfSummary('Error: ' + (err && err.message ? err.message : String(err)), 'bad');
+  } finally {
+    mfSetBusy(false);
+  }
+}
+
 /* -------------------------------- init -------------------------------- */
 
 async function init() {
@@ -218,6 +391,21 @@ async function init() {
       addMessage('assistant', 'Mode make.fun aktif: rules make.fun disuntikkan ke system prompt. Pastikan workspace adalah folder repo bounty-nya.');
     }
   };
+  window.api.onMakefunLog((evt) => mfLog(evt.line, evt.stream === 'stderr'));
+  $('makefunBtn').onclick = () => { openMakefun().catch((err) => addMessage('error', err.message || String(err))); };
+  $('makefunClose').onclick = async () => {
+    mfDisarm();
+    await mfPersist();
+    $('makefunOverlay').classList.add('hidden');
+  };
+  $('mfKitPick').onclick = async () => {
+    const dir = await window.api.selectKitDir();
+    if (dir) $('mfKitDir').value = dir;
+  };
+  $('mfSessionRefresh').onclick = () => refreshMfSessions();
+  $('mfBundleBtn').onclick = mfBundle;
+  $('mfCheckBtn').onclick = mfCheck;
+  $('mfSubmitBtn').onclick = mfSubmit;
   $('settingsBtn').onclick = () => {
     renderSettingsForm();
     $('settingsOverlay').classList.remove('hidden');
