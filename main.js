@@ -18,7 +18,7 @@ const path = require('path');
 
 const { listProviders } = require('./src/providers');
 const { loadSettings, saveSettings, resolveActive } = require('./src/store');
-const { SessionStore } = require('./src/sessions');
+const { SessionStore, historyFromEntries, uiMessagesFromEntries } = require('./src/sessions');
 const { createToolRunner } = require('./src/tools');
 const { runAgentTurn } = require('./src/agent');
 
@@ -65,16 +65,9 @@ function ensureSession() {
   return currentSession;
 }
 
-function rebuildHistory(entries) {
-  const history = [];
-  for (const e of entries) {
-    if ((e.type === 'user' || e.type === 'assistant') && e.message) {
-      history.push(e.message);
-    } else if (e.type === 'tool_result') {
-      history.push({ role: 'tool', tool_call_id: e.toolCallId, content: e.result || '' });
-    }
-  }
-  return history;
+function rebuildHistory(entries, workspaceRoot) {
+  // Handles both the current block-shaped recording and v1 session files.
+  return historyFromEntries(entries, workspaceRoot);
 }
 
 function createWindow() {
@@ -143,10 +136,8 @@ ipcMain.handle('session:load', (_evt, id) => {
   const entries = sessionStore.load(id);
   const meta = sessionStore.meta(id);
   if (!meta) throw new Error('Sesi tidak ditemukan: ' + id);
-  currentSession = { meta, history: rebuildHistory(entries) };
-  const uiMessages = entries
-    .filter((e) => e.type === 'user' || e.type === 'assistant' || e.type === 'tool_use' || e.type === 'tool_result')
-    .map((e) => ({ type: e.type, timestamp: e.timestamp, message: e.message || null, name: e.name || null, args: e.args || null, result: e.result || null, isError: !!e.isError }));
+  currentSession = { meta, history: rebuildHistory(entries, meta.cwd || settings.workspace || '') };
+  const uiMessages = uiMessagesFromEntries(entries, meta.cwd || settings.workspace || '');
   return { meta, messages: uiMessages };
 });
 
