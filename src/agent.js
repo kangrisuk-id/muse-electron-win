@@ -9,6 +9,7 @@
  */
 
 const { chatCompletion } = require('./providers');
+const { assistantMessageRecord } = require('./sessions');
 
 const MAX_ROUNDS = 30;
 
@@ -58,12 +59,21 @@ async function runAgentTurn(opts) {
     }
   };
 
+  const systemPrompt = buildSystemPrompt({ workspace, makefunRules });
+
+  // Record the exact system prompt once per session, at its start, before
+  // the first user line: transcript readers price and judge a session
+  // against the instructions it actually ran under.
+  if (session && session.meta && !session.meta.systemPromptRecorded) {
+    record('system', { message: { role: 'system', content: systemPrompt } });
+    session.meta.systemPromptRecorded = true;
+  }
+
   const userMessage = history[history.length - 1];
   if (userMessage && userMessage.role === 'user') {
     record('user', { message: userMessage });
   }
 
-  const systemPrompt = buildSystemPrompt({ workspace, makefunRules });
   let finalText = '';
 
   for (let round = 1; round <= MAX_ROUNDS; round++) {
@@ -81,7 +91,17 @@ async function runAgentTurn(opts) {
       assistantMessage.tool_calls = msg.tool_calls;
     }
     history.push(assistantMessage);
-    record('assistant', { message: assistantMessage, usage: json.usage || null, round });
+    // Record in the Claude Code line shape: content blocks (thinking /
+    // text / tool_use) and the provider usage inside the message.
+    record('assistant', {
+      message: assistantMessageRecord(msg, {
+        model,
+        usage: json.usage || null,
+        responseId: json.id || null,
+        finishReason: json.choices[0].finish_reason || null,
+        workspaceRoot: workspace,
+      }),
+    });
     if (assistantMessage.content) {
       finalText = assistantMessage.content;
       emit({ kind: 'assistant', content: assistantMessage.content, round });
@@ -98,7 +118,6 @@ async function runAgentTurn(opts) {
       try { args = JSON.parse((call.function && call.function.arguments) || '{}'); }
       catch (_) { args = {}; }
       emit({ kind: 'tool_call', id: call.id, name, args, round });
-      record('tool_use', { toolCallId: call.id, name, args, round });
 
       let resultText;
       let isError = false;
@@ -109,7 +128,14 @@ async function runAgentTurn(opts) {
         resultText = 'ERROR: ' + (err && err.message ? err.message : String(err));
       }
       emit({ kind: 'tool_result', id: call.id, name, result: resultText, isError, round });
-      record('tool_result', { toolCallId: call.id, name, result: resultText, isError, round });
+      // Record the result as a user line holding a tool_result block that
+      // answers the tool_use id, the shape transcript readers pair up.
+      const resultBlock = { type: 'tool_result', tool_use_id: call.id, content: resultText };
+      if (isError) resultBlock.is_error = true;
+      record('user', {
+        message: { role: 'user', content: [resultBlock] },
+        toolUseResult: resultText,
+      });
 
       history.push({ role: 'tool', tool_call_id: call.id, content: resultText });
     }
