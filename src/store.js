@@ -14,8 +14,13 @@
  *   },
  *   workspace: '',
  *   makefunMode: false,
- *   makefun: { kitDir: '', keypairPath: '', slug: '', repoUrl: '', title: '' }
+ *   makefun: { kitDir: '', keypairPath: '', slug: '', repoUrl: '', title: '',
+ *              wallet: '' }
  * }
+ *
+ * makefun.wallet is the PUBLIC agent wallet address used by the
+ * "Bounty Baru" wizard for .makefun/owner.json; empty means the wizard's
+ * built-in default. It is a public address, never a key.
  *
  * makefun.keypairPath is a PATH only (default ~/.makefun/
  * makefun-keypair.json); the keypair file itself is read solely by the
@@ -39,7 +44,7 @@ function defaultSettings() {
     providers,
     workspace: '',
     makefunMode: false,
-    makefun: { kitDir: '', keypairPath: '', slug: '', repoUrl: '', title: '' },
+    makefun: { kitDir: '', keypairPath: '', slug: '', repoUrl: '', title: '', wallet: '' },
   };
 }
 
