@@ -22,6 +22,7 @@ const { SessionStore, historyFromEntries, uiMessagesFromEntries } = require('./s
 const { createToolRunner } = require('./src/tools');
 const { runAgentTurn } = require('./src/agent');
 const makefun = require('./src/makefun');
+const { createBountyProject, DEFAULT_WALLET } = require('./src/wizard');
 
 let win = null;
 let settings = null;
@@ -35,10 +36,22 @@ function userDataDir() {
   return app.getPath('userData');
 }
 
-function loadMakefunRules() {
+function makefunRulesPath() {
   const candidates = [
     process.env.MUSE_MAKEFUN_RULES || '',
     path.join(os.homedir(), 'workspace', 'makefun-agent-rules', '.clinerules'),
+  ].filter(Boolean);
+  for (const file of candidates) {
+    try {
+      if (fs.existsSync(file)) return file;
+    } catch (_) { /* try next */ }
+  }
+  return candidates[candidates.length - 1] || '';
+}
+
+function loadMakefunRules() {
+  const candidates = [
+    makefunRulesPath(),
     path.join(__dirname, 'assets', 'makefun-rules.txt'),
   ].filter(Boolean);
   for (const file of candidates) {
@@ -141,6 +154,35 @@ ipcMain.handle('session:load', (_evt, id) => {
   currentSession = { meta, history: rebuildHistory(entries, meta.cwd || settings.workspace || '') };
   const uiMessages = uiMessagesFromEntries(entries, meta.cwd || settings.workspace || '');
   return { meta, messages: uiMessages };
+});
+
+/* ---------------------------- Bounty Baru ------------------------------ */
+
+ipcMain.handle('wizard:pickParent', async () => {
+  const result = await dialog.showOpenDialog(win, {
+    properties: ['openDirectory'],
+    title: 'Pilih folder induk proyek bounty',
+  });
+  if (result.canceled || !result.filePaths[0]) return '';
+  return result.filePaths[0];
+});
+
+ipcMain.handle('wizard:create', async (_evt, { parentDir, folderName, slug, wallet }) => {
+  const res = createBountyProject({
+    parentDir,
+    folderName,
+    slug,
+    wallet: wallet || settings.makefun.wallet || DEFAULT_WALLET,
+    rulesSource: makefunRulesPath(),
+  });
+  // The new project becomes the active workspace (fresh session, same
+  // mechanism as workspace:select) so work starts in the right folder.
+  settings.workspace = res.dir;
+  if (res.slug) settings.makefun.slug = res.slug;
+  if (wallet) settings.makefun.wallet = wallet;
+  saveSettings(userDataDir(), settings);
+  currentSession = null;
+  return res;
 });
 
 /* ----------------------------- make.fun -------------------------------- */
