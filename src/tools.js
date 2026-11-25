@@ -3,9 +3,12 @@
 /**
  * Agent tools, strictly scoped to a chosen workspace folder.
  *
- * File tools resolve every path against the workspace root and refuse
- * anything that escapes it (including via ".."). run_command executes with
- * cwd = workspace root, a 60s timeout, and truncated output.
+ * WORKSPACE LOCK (hard, no bypass): every file tool resolves its target
+ * path — absolute, normalized, and symlink-resolved for the deepest
+ * existing ancestor — and REJECTS anything that lands outside the
+ * workspace root. "..", absolute paths, and symlinks pointing out are
+ * all refused with a clear error. run_command executes with cwd =
+ * workspace root; a requested cwd is validated by the same lock.
  */
 
 const fs = require('fs');
@@ -75,10 +78,13 @@ const TOOL_DEFS = [
     type: 'function',
     function: {
       name: 'run_command',
-      description: 'Run a shell command with the workspace as working directory. 60 second timeout; output is truncated.',
+      description: 'Run a shell command with the workspace as working directory. An optional cwd (relative to the workspace, or absolute) must stay inside the workspace — anything outside is rejected. 60 second timeout; output is truncated.',
       parameters: {
         type: 'object',
-        properties: { command: { type: 'string', description: 'Shell command to run' } },
+        properties: {
+          command: { type: 'string', description: 'Shell command to run' },
+          cwd: { type: 'string', description: 'Working directory inside the workspace (optional; default: workspace root)' },
+        },
         required: ['command'],
       },
     },
@@ -91,14 +97,54 @@ function truncate(text, max) {
   return text.slice(0, max) + '\n…[dipotong, total ' + text.length + ' karakter]';
 }
 
+function outsideError(rel) {
+  return new Error(
+    'Path is outside the workspace (di luar workspace ditolak): ' + rel +
+    '. The workspace lock has no bypass — use a path inside the workspace.'
+  );
+}
+
+function isInside(candidate, base) {
+  return candidate === base || candidate.startsWith(base + path.sep);
+}
+
+/**
+ * Realpath of the deepest existing ancestor of `abs`, plus the remaining
+ * (not yet existing) tail segments. This is what defeats symlink escapes:
+ * a path that lexically sits inside the workspace but resolves — through
+ * a symlinked directory — to somewhere outside is caught here.
+ */
+function realpathDeepest(abs) {
+  let cur = abs;
+  const tail = [];
+  for (;;) {
+    try {
+      return { real: fs.realpathSync(cur), tail };
+    } catch (_) {
+      const parent = path.dirname(cur);
+      if (parent === cur) return { real: null, tail };
+      tail.unshift(path.basename(cur));
+      cur = parent;
+    }
+  }
+}
+
 function createToolRunner(workspaceRoot) {
   if (!workspaceRoot) throw new Error('workspaceRoot is required');
   const root = path.resolve(workspaceRoot);
+  let realRoot = root;
+  try { realRoot = fs.realpathSync(root); } catch (_) { /* root may not exist yet */ }
 
   function resolveInside(rel) {
+    // 1) Lexical check: normalize + resolve, refuse ".." / absolute escapes.
     const abs = path.resolve(root, rel || '.');
-    if (abs !== root && !abs.startsWith(root + path.sep)) {
-      throw new Error('Path di luar workspace ditolak: ' + rel);
+    if (!isInside(abs, root)) throw outsideError(rel);
+    // 2) Symlink check: resolve the deepest existing ancestor for real and
+    //    refuse when the true location leaves the workspace.
+    const { real, tail } = realpathDeepest(abs);
+    if (real !== null) {
+      const candidate = tail.length ? path.join(real, ...tail) : real;
+      if (!isInside(candidate, realRoot)) throw outsideError(rel);
     }
     return abs;
   }
@@ -135,10 +181,13 @@ function createToolRunner(workspaceRoot) {
         return lines.length ? lines.join('\n') : '(folder kosong)';
       }
       case 'run_command': {
+        // cwd defaults to the workspace root; a requested cwd (relative or
+        // absolute) must pass the same workspace lock as the file tools.
+        const cwdAbs = args.cwd ? resolveInside(args.cwd) : root;
         return await new Promise((resolve) => {
           exec(
             String(args.command || ''),
-            { cwd: root, timeout: COMMAND_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
+            { cwd: cwdAbs, timeout: COMMAND_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
             (err, stdout, stderr) => {
               const out = [];
               if (stdout) out.push(stdout);
@@ -159,7 +208,7 @@ function createToolRunner(workspaceRoot) {
     }
   }
 
-  return { defs: TOOL_DEFS, execute, root };
+  return { defs: TOOL_DEFS, execute, root, resolveInside };
 }
 
 module.exports = { TOOL_DEFS, createToolRunner, truncate, MAX_OUTPUT_CHARS, COMMAND_TIMEOUT_MS };
