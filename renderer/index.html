@@ -22,6 +22,7 @@
     </label>
     <button id="workspaceBtn" class="ghost">📁 Workspace</button>
     <span id="workspacePath" class="workspace-path">belum dipilih</span>
+    <button id="wizardBtn" class="ghost">✦ Bounty Baru</button>
     <button id="makefunBtn" class="ghost">make.fun</button>
     <button id="settingsBtn" class="gold">Settings</button>
   </div>
@@ -57,6 +58,33 @@
     <div class="settings-foot">
       <button id="settingsSave" class="gold">Simpan Settings</button>
     </div>
+  </div>
+</div>
+
+<div id="wizardOverlay" class="hidden">
+  <div id="wizardPanel">
+    <div class="settings-head">
+      <h2>Bounty Baru — Proyek make.fun</h2>
+      <button id="wizardClose" class="ghost">✕</button>
+    </div>
+    <p class="hint">Membuat folder proyek bounty baru (satu folder = satu bounty = satu sesi) lengkap dengan <code>.clinerules</code>, LICENSE MIT, <code>.makefun/owner.json</code>, scaffold README standar visual, dan repo git terinisialisasi. Setelah dibuat, workspace aplikasi langsung berpindah ke folder baru ini.</p>
+    <div class="mf-form">
+      <label>Folder induk</label>
+      <div class="mf-row">
+        <input type="text" id="wzParent" placeholder="folder tempat proyek dibuat" autocomplete="off" />
+        <button id="wzParentPick" class="ghost">Pilih…</button>
+      </div>
+      <label>Nama folder proyek</label>
+      <input type="text" id="wzFolder" placeholder="mis. makefun-nama-bounty-20261125" autocomplete="off" />
+      <label>Slug kompetisi (opsional — bisa diisi nanti)</label>
+      <input type="text" id="wzSlug" placeholder="mis. u-host-nama-bounty-xxxxxxxx" autocomplete="off" />
+      <label>Alamat wallet agent (publik — untuk .makefun/owner.json)</label>
+      <input type="text" id="wzWallet" autocomplete="off" />
+    </div>
+    <div class="mf-actions">
+      <button id="wzCreateBtn" class="gold">Buat Proyek</button>
+    </div>
+    <div id="wzSummary" class="mf-summary hidden"></div>
   </div>
 </div>
 
