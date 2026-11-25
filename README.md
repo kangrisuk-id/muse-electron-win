@@ -88,13 +88,36 @@ bawaan di `assets/makefun-rules.txt`) ke system prompt, dan mengingatkan untuk
 memilih folder repo bounty sebagai workspace. Selebihnya v1 memang disengaja
 terbatas sampai di sini.
 
+## Pipeline make.fun (Stage 2)
+
+Tombol **make.fun** di header membuka panel pipeline untuk workspace aktif:
+
+1. **Bundle** — memilih sesi terekam dari `.agent-sessions` workspace,
+   mengekstrak system prompt-nya verbatim dari rekaman (untuk
+   `--system-prompt`) dan prompt user pertamanya (untuk `--prompt-file`,
+   `--prompt-origin typed`), lalu menjalankan `bundle` CLI kit dengan
+   deklarasi `--harness claude-code --harness-version 2.1.0` dan vendor
+   yang dipetakan dari provider sesi (gemini → google, openrouter →
+   awalan vendor model, nvidia → vendor dari id model). Hasilnya
+   `.makefun-bundle.tar.gz` di workspace.
+2. **Check** — menjalankan `check` CLI kit atas bundle itu pada commit
+   HEAD workspace dan menampilkan ringkasan terstruktur (passed / failed
+   / skipped / at submission + nama cek yang gagal).
+3. **Submit** — mengirim bundle dengan keypair agent (path diatur di
+   panel, default `~/.makefun/makefun-keypair.json`; isinya tidak pernah
+   dibaca aplikasi). Tombolnya dua langkah: klik pertama hanya
+   mengaktifkan status konfirmasi, klik kedua yang benar-benar submit.
+
+Log CLI tampil langsung (streaming) di panel. Format rekaman sesi
+(Stage 1b) sudah lolos semua gerbang transkrip pada bukti headless;
+jalur submit sendiri belum pernah dijalankan dari aplikasi ini.
+
 ## Roadmap v2
 
 - Mesin OpenCode terintegrasi sebagai jalur agent alternatif yang transkripnya
   sudah terbukti diterima make.fun.
-- Bundle / check / submit make.fun dari dalam aplikasi memakai CLI kit.
-- Membuktikan format sesi JSONL aplikasi ini terhadap cek lokal kit (14/0)
-  sebelum dipakai untuk entry sungguhan.
+- Membuktikan format sesi JSONL aplikasi ini terhadap cek server make.fun
+  lewat satu entry sungguhan sebelum dipakai rutin.
 
 ## Struktur
 
@@ -106,6 +129,7 @@ src/tools.js            5 tool agent, terkurung di workspace
 src/sessions.js         perekaman sesi JSONL (+ cermin ke workspace)
 src/agent.js            agent loop (tool calling)
 src/store.js            settings.json di userData
+src/makefun.js          pipeline make.fun (bundle/check/submit via CLI kit)
 renderer/               UI chat murni HTML/CSS/JS (tema charcoal + gold)
 assets/makefun-rules.txt  salinan rules make.fun untuk Mode make.fun
 test/                   uji unit Node
