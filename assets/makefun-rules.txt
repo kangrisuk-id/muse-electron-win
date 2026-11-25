@@ -1,0 +1,65 @@
+# make.fun Bounty Entry Rules — WAJIB diikuti untuk setiap entry di workspace ini
+
+Kamu sedang membangun SATU entry bounty make.fun di folder repo ini. Entry dinilai server
+bukan hanya dari hasilnya, tapi dari transkrip sesi ini: kepenulisan, kejujuran proses, dan
+ketepatan format. Langgar aturan di bawah = entry ditolak atau skornya jatuh.
+
+## 0. Sebelum menulis apa pun
+- Baca brief kompetisi sampai tuntas lebih dulu: RULES.txt, competition.yaml, dan requirements
+  resmi (dari kit / endpoint kompetisi). Catat: format output persis, batas karakter/ukuran,
+  kriteria juri DAN URUTANNYA, deadline, jumlah tempat berbayar.
+- Verifikasi biaya masuk: jalankan `fee show <slug>` dari CLI kit. Hasil `no_entry_fee` = gratis.
+  JANGAN percaya field API mentah (entryFeesUsd adalah total terkumpul, bukan tarif).
+- Sesi ini hanya untuk satu bounty ini. Jangan membuka, membaca, atau menyalin repo entry lain
+  (folder makefun-* lain, repo GitHub entry lain) — server mendeteksi karya turunan.
+
+## 1. Kepenulisan (penyebab gagal paling umum)
+- Tulis SEMUA file entry sendiri lewat tool tulis/edit di sesi ini, dari brief.
+- File entrypoint (main.py/main.ts) WAJIB mencapai isi final lewat minimal 2 langkah
+  tulis/edit yang tulus (tulis awal -> edit nyata). Menyalin file starter kit apa adanya
+  atau menempel kode jadi dari luar sesi = authored lines ~0% = GAGAL.
+- Payload besar (gambar, data) JANGAN disisipkan sebagai teks/base64 di dalam entrypoint.
+  Simpan sebagai file biner terpisah (mis. assets.bin) dan buat entrypoint pendek yang
+  membacanya — file biner tidak dihitung baris.
+- Jangan mengedit file apa pun di repo ini setelah entry disubmit. Submission terakhir yang
+  dihitung; entry yang sudah berdiri dilindungi.
+
+## 2. Metode untuk bounty yang dinilai juri (teks/gambar)
+- Hasilkan ±40 kandidat. Nilai SETIAP kandidat per kriteria juri, SESUAI URUTAN kriteria
+  di brief (duel pairwise diputuskan kriteria pertama yang berbeda).
+- Jalankan turnamen knockout untuk 8 seed teratas. Simpan semua kandidat + skor + bracket
+  di candidates.md di dalam repo.
+- Pemenang = skor tertinggi; bila seri, putuskan head-to-head per kriteria berurutan,
+  lalu baris yang lebih pendek/ketat.
+- Judul submission bergaya lembar spesifikasi: metode + angka
+  (mis. "40 candidates, 5-criterion knockout, 24/25: <hook>").
+
+## 3. Kode (grader sangat ketat)
+- Python MURNI stdlib. Image grader resmi TIDAK punya Pillow/library pihak ketiga —
+  import PIL atau paket eksternal apa pun = run gagal (exit 1) walau lokal lolos.
+- Tulis output ke os.environ["MAKEFUN_OUTPUT_DIR"] lebih dulu, fallback "/output",
+  lalu direktori skrip. Tangkap OSError per kandidat path.
+- JANGAN PERNAH chmod folder/file output — /output milik harness grader.
+- Deterministik penuh: tanpa clock/random bebas (seed tetap bila perlu), tanpa jaringan.
+- Lingkungan grader: 1 CPU, 512MB RAM, 60 detik, /bot read-only, user nobody.
+
+## 4. Gambar & README (standar visual wajib)
+- Gambar dibuat dengan encoder PNG murni stdlib (zlib+struct) atau alat lokal yang tersedia;
+  WAJIB dilihat hasil rendernya sebelum dianggap selesai.
+- README mulai dari template kit: tiga badge make.fun dan footer HARUS byte-exact
+  (jangan ubik-ubik URL-nya selain placeholder owner/repo/referral).
+- Tambahkan: gambar hero di bawah judul, galeri screenshot ber-caption, tabel ringkas
+  isi entry. Pastikan nama repo di URL badge sama dengan nama repo yang benar-benar dibuat.
+
+## 5. Uji lokal sebelum selesai
+- Jalankan entry persis seperti grader: `python3 -P -s main.py` dengan
+  MAKEFUN_OUTPUT_DIR menunjuk folder uji.
+- Verifikasi output byte-exact sama dengan karya pemenang dan lolos semua gate brief
+  (jumlah karakter, format file, ukuran).
+
+## 6. Penutup (dilakukan pemilik/operator, bukan agent sembarangan)
+- Bundle dengan CLI kit memakai discovery transkrip (jangan --no-discover kecuali diminta),
+  `check` WAJIB lulus semua (14/0, bot 15/0) sebelum submit.
+- Submit bounty escrowed WAJIB dengan --keypair sejak percobaan pertama.
+- Laporkan angka dev JUJUR apa adanya — termasuk hasil rugi/negatif pada uji bot/forecast.
+  Jangan pernah melebih-lebihkan hasil.
