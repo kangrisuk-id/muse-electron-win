@@ -350,6 +350,56 @@ async function mfSubmit() {
   }
 }
 
+/* ----------------------------- Bounty Baru ---------------------------- */
+
+const DEFAULT_WALLET = '6cXDbrdPH6yCbdGoDDFRYw8G2dWV3VQazAc71f6WAaur';
+let wzBusy = false;
+
+function wzSummary(text, kind) {
+  const box = $('wzSummary');
+  box.textContent = text;
+  box.className = 'mf-summary' + (kind ? ' ' + kind : '');
+}
+
+function openWizard() {
+  $('wzParent').value = settings.workspace ? settings.workspace.replace(/[\\/][^\\/]*$/, '') : '';
+  $('wzFolder').value = '';
+  $('wzSlug').value = '';
+  $('wzWallet').value = (settings.makefun && settings.makefun.wallet) || DEFAULT_WALLET;
+  $('wzSummary').className = 'mf-summary hidden';
+  $('wizardOverlay').classList.remove('hidden');
+}
+
+async function wzCreate() {
+  if (wzBusy) return;
+  const parentDir = $('wzParent').value.trim();
+  const folderName = $('wzFolder').value.trim();
+  const slug = $('wzSlug').value.trim();
+  const wallet = $('wzWallet').value.trim();
+  if (!parentDir) { wzSummary('Isi folder induk dulu.', 'bad'); return; }
+  if (!folderName) { wzSummary('Isi nama folder proyek dulu.', 'bad'); return; }
+  wzBusy = true;
+  $('wzCreateBtn').disabled = true;
+  try {
+    const res = await window.api.createBounty({ parentDir, folderName, slug, wallet });
+    settings = await window.api.getSettings();
+    currentSessionId = null;
+    renderHeader();
+    let text = 'Proyek dibuat: ' + res.dir +
+      '\nFile: ' + res.files.join(', ') +
+      '\nGit: 1 commit awal ' + (res.git && res.git.commit ? res.git.commit.slice(0, 8) : '') +
+      '\nWorkspace aplikasi sekarang: folder baru ini.';
+    if (res.warnings && res.warnings.length) text += '\n\n⚠ ' + res.warnings.join('\n⚠ ');
+    wzSummary(text, res.warnings && res.warnings.length ? 'bad' : 'ok');
+    addMessage('assistant', 'Proyek bounty baru dibuat dan dijadikan workspace aktif: ' + res.dir);
+  } catch (err) {
+    wzSummary('Error: ' + (err && err.message ? err.message : String(err)), 'bad');
+  } finally {
+    wzBusy = false;
+    $('wzCreateBtn').disabled = false;
+  }
+}
+
 /* -------------------------------- init -------------------------------- */
 
 async function init() {
@@ -392,6 +442,13 @@ async function init() {
     }
   };
   window.api.onMakefunLog((evt) => mfLog(evt.line, evt.stream === 'stderr'));
+  $('wizardBtn').onclick = () => openWizard();
+  $('wizardClose').onclick = () => $('wizardOverlay').classList.add('hidden');
+  $('wzParentPick').onclick = async () => {
+    const dir = await window.api.pickParentDir();
+    if (dir) $('wzParent').value = dir;
+  };
+  $('wzCreateBtn').onclick = wzCreate;
   $('makefunBtn').onclick = () => { openMakefun().catch((err) => addMessage('error', err.message || String(err))); };
   $('makefunClose').onclick = async () => {
     mfDisarm();
