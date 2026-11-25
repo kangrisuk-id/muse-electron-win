@@ -21,6 +21,7 @@ const { loadSettings, saveSettings, resolveActive } = require('./src/store');
 const { SessionStore, historyFromEntries, uiMessagesFromEntries } = require('./src/sessions');
 const { createToolRunner } = require('./src/tools');
 const { runAgentTurn } = require('./src/agent');
+const makefun = require('./src/makefun');
 
 let win = null;
 let settings = null;
@@ -28,6 +29,7 @@ let sessionStore = null;
 let currentSession = null; // {meta, history: []}
 let currentAbort = null;
 let chatBusy = false;
+let makefunBusy = false;
 
 function userDataDir() {
   return app.getPath('userData');
@@ -139,6 +141,83 @@ ipcMain.handle('session:load', (_evt, id) => {
   currentSession = { meta, history: rebuildHistory(entries, meta.cwd || settings.workspace || '') };
   const uiMessages = uiMessagesFromEntries(entries, meta.cwd || settings.workspace || '');
   return { meta, messages: uiMessages };
+});
+
+/* ----------------------------- make.fun -------------------------------- */
+
+function makefunLog(evt) {
+  if (win && !win.isDestroyed()) win.webContents.send('makefun:log', evt);
+}
+
+async function runMakefunStep(fn) {
+  if (makefunBusy) throw new Error('Langkah make.fun lain sedang berjalan — tunggu selesai.');
+  makefunBusy = true;
+  try {
+    return await fn();
+  } finally {
+    makefunBusy = false;
+  }
+}
+
+ipcMain.handle('makefun:sessions', () => {
+  if (!settings.workspace) return [];
+  return makefun.listWorkspaceSessions(settings.workspace);
+});
+
+ipcMain.handle('makefun:selectKit', async () => {
+  const result = await dialog.showOpenDialog(win, {
+    properties: ['openDirectory'],
+    title: 'Pilih folder kit kompetisi make.fun',
+  });
+  if (result.canceled || !result.filePaths[0]) return '';
+  return result.filePaths[0];
+});
+
+ipcMain.handle('makefun:bundle', async (_evt, { kitDir, sessionFile }) => {
+  if (!settings.workspace) throw new Error('Pilih folder workspace dulu.');
+  return runMakefunStep(async () => {
+    const res = await makefun.runBundle(
+      { workspace: settings.workspace, kitDir, sessionFile },
+      makefunLog
+    );
+    return { code: res.code, outPath: res.outPath, vendor: res.vendor, model: res.model, args: res.args };
+  });
+});
+
+ipcMain.handle('makefun:check', async (_evt, { kitDir }) => {
+  if (!settings.workspace) throw new Error('Pilih folder workspace dulu.');
+  return runMakefunStep(async () => {
+    const transcripts = path.join(settings.workspace, makefun.BUNDLE_FILENAME);
+    if (!fs.existsSync(transcripts)) throw new Error('Bundle belum ada — jalankan Bundle dulu.');
+    const res = await makefun.runCheck(
+      { workspace: settings.workspace, kitDir, transcripts },
+      makefunLog
+    );
+    return { code: res.code, commit: res.commit, parsed: res.parsed };
+  });
+});
+
+ipcMain.handle('makefun:submit', async (_evt, { kitDir, slug, repoUrl, title }) => {
+  if (!settings.workspace) throw new Error('Pilih folder workspace dulu.');
+  return runMakefunStep(async () => {
+    const bundlePath = path.join(settings.workspace, makefun.BUNDLE_FILENAME);
+    if (!fs.existsSync(bundlePath)) throw new Error('Bundle belum ada — jalankan Bundle dulu.');
+    const commit = await makefun.gitHead(settings.workspace);
+    if (!commit) throw new Error('Workspace bukan repo git (atau belum ada commit) — commit dulu sebelum submit.');
+    const res = await makefun.runSubmit(
+      {
+        kitDir,
+        competition: slug,
+        repoUrl,
+        commit,
+        bundlePath,
+        keypairPath: makefun.resolveKeypairPath(settings),
+        title,
+      },
+      makefunLog
+    );
+    return { code: res.code, submissionId: res.submissionId, claimCode: res.claimCode, checkedLine: res.checkedLine };
+  });
 });
 
 ipcMain.handle('chat:abort', () => {
