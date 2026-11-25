@@ -112,6 +112,24 @@ Log CLI tampil langsung (streaming) di panel. Format rekaman sesi
 (Stage 1b) sudah lolos semua gerbang transkrip pada bukti headless;
 jalur submit sendiri belum pernah dijalankan dari aplikasi ini.
 
+## Bounty Baru + kunci workspace (Stage 3)
+
+- **Wizard "✦ Bounty Baru"** (tombol di header) membuat folder proyek
+  bounty baru — satu folder = satu bounty = satu sesi — berisi
+  `.clinerules` (disalin byte-identical dari
+  `~/workspace/makefun-agent-rules/.clinerules`), LICENSE MIT dengan
+  baris SPDX, `.makefun/owner.json` berisi wallet agent publik, dan
+  scaffold README standar visual (placeholder badge ditandai jelas —
+  badge live spesifik kompetisi diisi dari requirements kit saat
+  build). Folder ditolak bila sudah ada dan tidak kosong. Repo git
+  diinisialisasi dengan satu commit awal, lalu workspace aplikasi
+  langsung berpindah ke folder baru.
+- **Kunci workspace keras** di lapisan tool: setiap path tool file
+  dinormalisasi DAN diresolusi symlink (leluhur terdalam yang ada), dan
+  ditolak bila keluar dari root workspace — lewat `..`, path absolut,
+  maupun symlink. `run_command` berjalan dengan cwd = root workspace;
+  cwd yang diminta di luar workspace ditolak. Tidak ada bypass.
+
 ## Roadmap v2
 
 - Mesin OpenCode terintegrasi sebagai jalur agent alternatif yang transkripnya
@@ -130,6 +148,7 @@ src/sessions.js         perekaman sesi JSONL (+ cermin ke workspace)
 src/agent.js            agent loop (tool calling)
 src/store.js            settings.json di userData
 src/makefun.js          pipeline make.fun (bundle/check/submit via CLI kit)
+src/wizard.js           wizard "Bounty Baru" (scaffold proyek + git init)
 renderer/               UI chat murni HTML/CSS/JS (tema charcoal + gold)
 assets/makefun-rules.txt  salinan rules make.fun untuk Mode make.fun
 test/                   uji unit Node
