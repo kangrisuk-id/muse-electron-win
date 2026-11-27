@@ -226,6 +226,24 @@ jalur submit sendiri belum pernah dijalankan dari aplikasi ini.
   electron-builder diarahkan lewat `build.icon`; jalankan ulang
   script-nya bila desain diubah.
 
+## Streaming jawaban (Stage 9)
+
+- **`chatCompletionStream`** di `src/providers.js` meminta
+  `stream: true` + `stream_options.include_usage`, membaca SSE secara
+  inkremental (baris yang terpotong di tengah ditahan sampai lengkap),
+  meneruskan fragmen teks ke UI **saat itu juga** lewat event
+  `assistant_delta`, dan merakit hasil akhir ke bentuk respons yang
+  sama persis dengan jalur non-stream: konten tergabung, `tool_calls`
+  dirakit per indeks dari fragmen argumen, usage dari chunk terakhir
+  bila provider mengirimnya (tidak pernah dikarang).
+- **Fallback aman:** provider/proxy yang mengabaikan `stream` dan
+  menjawab JSON utuh tetap bekerja — isinya dipakai apa adanya.
+  Error HTTP dilaporkan dengan format yang sama seperti jalur biasa.
+- Loop agent memakai streaming hanya bila ada pengamat delta (UI);
+  pemanggil tanpa UI (test, headless) memakai jalur lama. Gelembung
+  chat mengalir langsung di renderer dan diselesaikan oleh event
+  `assistant` final dengan teks lengkap.
+
 ## Roadmap v2
 
 - Mesin OpenCode terintegrasi sebagai jalur agent alternatif yang transkripnya

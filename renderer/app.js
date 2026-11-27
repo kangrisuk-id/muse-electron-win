@@ -32,6 +32,30 @@ function addMessage(role, content) {
   return div;
 }
 
+/* Stage 9: streaming bubble — fragments append live; the final
+   'assistant' event settles the bubble with the complete text. */
+let streamingBubble = null;
+let streamingText = '';
+function appendDelta(delta) {
+  if (!streamingBubble) {
+    streamingBubble = addMessage('assistant', '');
+    streamingText = '';
+  }
+  streamingText += delta;
+  streamingBubble.innerHTML = '<span class="who">Agent</span>' + esc(streamingText);
+  scrollDown();
+}
+function settleStream(finalContent) {
+  if (streamingBubble) {
+    streamingBubble.innerHTML = '<span class="who">Agent</span>' + esc(finalContent || streamingText);
+    streamingBubble = null;
+    streamingText = '';
+    scrollDown();
+    return true;
+  }
+  return false;
+}
+
 function addToolCall(id, name, args) {
   const details = document.createElement('details');
   details.className = 'tool';
@@ -651,8 +675,11 @@ async function init() {
   await refreshSessions();
 
   window.api.onAgentEvent((evt) => {
-    if (evt.kind === 'assistant') addMessage('assistant', evt.content);
-    else if (evt.kind === 'tool_call') addToolCall(evt.id, evt.name, evt.args);
+    if (evt.kind === 'assistant_delta') appendDelta(evt.delta || '');
+    else if (evt.kind === 'assistant') {
+      if (!settleStream(evt.content)) addMessage('assistant', evt.content);
+    }
+    else if (evt.kind === 'tool_call') { streamingBubble = null; streamingText = ''; addToolCall(evt.id, evt.name, evt.args); }
     else if (evt.kind === 'tool_result') fillToolResult(evt.id, evt.name, evt.result, evt.isError);
     else if (evt.kind === 'tool_denied') addMessage('system', '⛔ Tool ' + evt.name + ' ditolak — tidak dijalankan.');
   });

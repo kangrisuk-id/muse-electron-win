@@ -8,7 +8,7 @@
  * Everything is streamed to the UI via onEvent and recorded to the session.
  */
 
-const { chatCompletion } = require('./providers');
+const { chatCompletion, chatCompletionStream } = require('./providers');
 const { assistantMessageRecord } = require('./sessions');
 const { isMutatingTool } = require('./permissions');
 
@@ -46,6 +46,10 @@ function buildSystemPrompt({ workspace, makefunRules }) {
  * @param {string|null} opts.makefunRules  rules text when make.fun mode is on
  * @param {function} opts.onEvent   ({kind, ...}) => void
  * @param {AbortSignal} [opts.signal]
+ * @param {function} [opts.onDelta] Stage 9: (deltaText) => void. When
+ *   provided, the turn streams (SSE) and 'assistant_delta' events are
+ *   emitted per fragment; the final 'assistant' event still carries
+ *   the complete text.
  * @param {function} [opts.approveTool] Stage 7: async (name, args) =>
  *   boolean, consulted before MUTATING tools only. Absent = everything
  *   allowed. A denied call never executes; the model gets a denial
@@ -56,6 +60,7 @@ async function runAgentTurn(opts) {
   const {
     providerId, apiKey, model, history, toolRunner,
     session, workspace, makefunRules, onEvent, signal, approveTool,
+    onDelta, fetchImpl,
   } = opts;
   const emit = typeof onEvent === 'function' ? onEvent : () => {};
   const record = (type, data) => {
@@ -85,11 +90,22 @@ async function runAgentTurn(opts) {
     if (signal && signal.aborted) throw new Error('Dibatalkan oleh user.');
 
     const messages = [{ role: 'system', content: systemPrompt }, ...history];
-    const json = await chatCompletion({
+    // Stage 9: stream when a delta observer is attached (the UI),
+    // otherwise the plain completion (tests, headless callers).
+    const completionArgs = {
       providerId, apiKey, model, messages,
       tools: toolRunner ? toolRunner.defs : [],
-      signal,
-    });
+      signal, fetchImpl,
+    };
+    const json = typeof onDelta === 'function'
+      ? await chatCompletionStream({
+          ...completionArgs,
+          onDelta: (delta) => {
+            try { onDelta(delta); } catch (_) { /* observer errors never break the turn */ }
+            emit({ kind: 'assistant_delta', delta, round });
+          },
+        })
+      : await chatCompletion(completionArgs);
     const msg = json.choices[0].message;
     const assistantMessage = { role: 'assistant', content: msg.content || '' };
     if (Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {

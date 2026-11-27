@@ -467,6 +467,10 @@ ipcMain.handle('chat:send', async (_evt, text) => {
       makefunRules: settings.makefunMode ? loadMakefunRules() : null,
       signal: currentAbort.signal,
       approveTool: approveToolViaUi,
+      // Stage 9: attaching a delta observer switches the turn to SSE
+      // streaming; fragments reach the renderer as 'assistant_delta'
+      // events through onEvent below.
+      onDelta: () => {},
       onEvent: (evt) => {
         if (win && !win.isDestroyed()) win.webContents.send('agent:event', evt);
       },
