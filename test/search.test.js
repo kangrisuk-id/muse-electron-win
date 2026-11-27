@@ -86,7 +86,9 @@ test('sessionToMarkdown renders a readable, honestly truncated export', () => {
   assert.ok(md.includes('buatkan file'));
   assert.ok(md.includes('## 🤖 Agent'));
   assert.ok(md.includes('**Tool: `Write (write_file)`**'), 'recorded Claude-style name + app name');
-  assert.ok(md.includes('"file_path": "/tmp/ws/a.txt"'), 'recorded input shape (file_path absolut)');
+  // file_path is platform-joined by the recorder (backslash on Windows),
+  // so assert on the key + filename, never on a literal separator.
+  assert.ok(md.includes('"file_path"') && md.includes('a.txt'), 'recorded input shape (file_path absolut)');
   assert.ok(md.includes('…(dipotong untuk ekspor)'), 'long tool result is marked as truncated');
   assert.ok(!md.includes('x'.repeat(3000)), 'long content is actually cut');
   assert.ok(md.includes('## System prompt'));
