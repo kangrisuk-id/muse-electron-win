@@ -1,0 +1,35 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build Windows executables (NSIS installer + portable)
+        run: npx electron-builder --win
+
+      - name: Upload executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: muse-agent-desktop-windows
+          path: |
+            dist/*.exe
+          if-no-files-found: error
