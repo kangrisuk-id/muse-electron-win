@@ -214,6 +214,18 @@ jalur submit sendiri belum pernah dijalankan dari aplikasi ini.
   diinjeksikan proses utama; tanpa callback (mis. pada test) semua
   tool berjalan seperti sebelumnya.
 
+## Ikon aplikasi (Stage 8)
+
+- Ikon sendiri gold-on-charcoal: ubin charcoal bersudut bulat dengan
+  lis emas, monogram **M** emas tebal, dan spark empat titik krem di
+  kanan atas — menggantikan ikon Electron bawaan pada .exe, jendela,
+  taskbar, dan installer.
+- Dibuat deterministik oleh **`scripts/make-icon.py`** (PIL, tanpa
+  aset eksternal): menghasilkan `build/icon.png` (1024×1024, master +
+  ikon jendela) dan `build/icon.ico` (16–256 px untuk Windows).
+  electron-builder diarahkan lewat `build.icon`; jalankan ulang
+  script-nya bila desain diubah.
+
 ## Roadmap v2
 
 - Mesin OpenCode terintegrasi sebagai jalur agent alternatif yang transkripnya

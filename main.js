@@ -166,6 +166,7 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: '#14161a',
     title: 'Muse Agent Desktop',
+    icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
