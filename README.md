@@ -35,7 +35,8 @@ Studio (aistudio.google.com/apikey); key gratis NVIDIA NIM ada di build.nvidia.c
 (awalan `nvapi-`, tanpa kartu kredit).
 
 Key disimpan lokal di `settings.json` pada folder userData aplikasi di komputer
-ini — tidak pernah dikirim ke mana pun selain endpoint provider-nya sendiri.
+ini, terenkripsi dengan keychain OS bila tersedia (Stage 6, lihat di bawah) —
+tidak pernah dikirim ke mana pun selain endpoint provider-nya sendiri.
 
 ## Menjalankan secara lokal
 
@@ -173,6 +174,26 @@ jalur submit sendiri belum pernah dijalankan dari aplikasi ini.
 - IPC baru: `git:info`, `git:commit`, `tournament:generate`,
   `tournament:list`, `tournament:load`, `tournament:save`.
 
+## Enkripsi API key (Stage 6)
+
+- **`src/secrets.js`** membungkus cipher Electron `safeStorage`
+  (Windows DPAPI / keychain OS) dengan format disk `enc:v1:<base64>`
+  pada field `apiKey` yang sama di `settings.json`. Hanya API key
+  yang dienkripsi — model, workspace, path, dan alamat wallet publik
+  tidak pernah disentuh.
+- **Migrasi transparan:** file settings lama (plaintext) terbaca
+  seperti biasa, dan otomatis terenkripsi pada penyimpanan
+  berikutnya. Di memori aplikasi key selalu plaintext; yang terenkripsi
+  hanya yang tertulis di disk.
+- **Fallback jujur:** bila keychain OS tidak tersedia (mis. Linux
+  tanpa keyring), format lama plaintext dipakai dan aplikasi tetap
+  berjalan — statusnya dicatat di log proses utama saat start.
+- **File asing/rusak aman:** nilai terenkripsi yang tidak bisa dibuka
+  di mesin ini (file disalin dari komputer/user lain, keychain
+  berubah) terbaca sebagai key kosong — user cukup memasukkan ulang
+  key-nya; cipher text tidak pernah bocor menjadi "key" yang terkirim
+  ke provider.
+
 ## Roadmap v2
 
 - Mesin OpenCode terintegrasi sebagai jalur agent alternatif yang transkripnya
@@ -195,6 +216,7 @@ src/wizard.js           wizard "Bounty Baru" (scaffold proyek + git init)
 src/usage.js            ringkasan usage token + estimasi biaya per sesi (Stage 4)
 src/git.js              git bawaan: status/log/diff/commit di workspace (Stage 5)
 src/tournament.js       turnamen kandidat: prompt/parse/ranking/penyimpanan (Stage 5)
+src/secrets.js          enkripsi API key di disk via safeStorage OS (Stage 6)
 renderer/               UI chat murni HTML/CSS/JS (tema charcoal + gold)
 assets/makefun-rules.txt  salinan rules make.fun untuk Mode make.fun
 test/                   uji unit Node

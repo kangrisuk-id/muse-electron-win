@@ -27,12 +27,17 @@
  * kit CLI at submit time, never by this app.
  *
  * API keys live ONLY in this local file and are sent ONLY to their own
- * provider's endpoint.
+ * provider's endpoint. Since Stage 6 they are stored ENCRYPTED at rest
+ * (Electron safeStorage / OS keychain, "enc:v1:…" values — see
+ * src/secrets.js) whenever the OS keychain is available; plaintext is
+ * kept in memory only. Without a keychain the legacy plaintext format
+ * is the documented fallback.
  */
 
 const fs = require('fs');
 const path = require('path');
 const { PROVIDER_ORDER, defaultModel } = require('./providers');
+const { encryptSettingsSecrets, decryptSettingsSecrets } = require('./secrets');
 
 function defaultSettings() {
   const providers = {};
@@ -52,7 +57,13 @@ function settingsPath(userDataDir) {
   return path.join(userDataDir, 'settings.json');
 }
 
-function loadSettings(userDataDir) {
+/**
+ * Load settings. `cipher` (optional) is an Electron-safeStorage-shaped
+ * object: encrypted apiKey values ("enc:v1:…") are decrypted into
+ * memory; plaintext values from older versions pass through and are
+ * encrypted on the next save (transparent migration).
+ */
+function loadSettings(userDataDir, cipher) {
   const base = defaultSettings();
   const file = settingsPath(userDataDir);
   if (!fs.existsSync(file)) return base;
@@ -69,15 +80,22 @@ function loadSettings(userDataDir) {
       }
     }
     if (!PROVIDER_ORDER.includes(merged.activeProvider)) merged.activeProvider = 'gemini';
-    return merged;
+    return decryptSettingsSecrets(merged, cipher);
   } catch (_) {
     return base;
   }
 }
 
-function saveSettings(userDataDir, settings) {
+/**
+ * Save settings. With a usable `cipher`, apiKey fields are written to
+ * disk encrypted ("enc:v1:…"); the RETURNED settings keep plaintext
+ * keys in memory so the running app never re-reads cipher text. Without
+ * a cipher the file format is the legacy plaintext one.
+ */
+function saveSettings(userDataDir, settings, cipher) {
   fs.mkdirSync(userDataDir, { recursive: true });
-  fs.writeFileSync(settingsPath(userDataDir), JSON.stringify(settings, null, 2), 'utf8');
+  const onDisk = encryptSettingsSecrets(settings, cipher);
+  fs.writeFileSync(settingsPath(userDataDir), JSON.stringify(onDisk, null, 2), 'utf8');
   return settings;
 }
 

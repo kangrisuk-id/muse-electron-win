@@ -11,13 +11,22 @@
  * It is NOT an official Meta app.
  */
 
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, safeStorage } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
 const { listProviders } = require('./src/providers');
 const { loadSettings, saveSettings, resolveActive } = require('./src/store');
+const { cipherUsable } = require('./src/secrets');
+
+// Stage 6: API keys are encrypted at rest with Electron safeStorage
+// (Windows DPAPI / OS keychain). The cipher is only consulted after
+// the app is ready; when the OS keychain is unavailable the store
+// falls back to the legacy plaintext format (see src/secrets.js).
+function settingsCipher() {
+  return cipherUsable(safeStorage) ? safeStorage : null;
+}
 const { SessionStore, historyFromEntries, uiMessagesFromEntries } = require('./src/sessions');
 const { createToolRunner } = require('./src/tools');
 const { runAgentTurn } = require('./src/agent');
@@ -107,7 +116,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  settings = loadSettings(userDataDir());
+  settings = loadSettings(userDataDir(), settingsCipher());
+  console.log(settingsCipher()
+    ? '[settings] Enkripsi API key aktif (safeStorage OS).'
+    : '[settings] safeStorage tidak tersedia — API key disimpan format lama (plaintext).');
   sessionStore = new SessionStore(userDataDir());
   createWindow();
   app.on('activate', () => {
@@ -126,7 +138,7 @@ ipcMain.handle('providers:list', () => listProviders());
 ipcMain.handle('settings:get', () => publicSettings());
 
 ipcMain.handle('settings:save', (_evt, next) => {
-  settings = saveSettings(userDataDir(), next);
+  settings = saveSettings(userDataDir(), next, settingsCipher());
   return publicSettings();
 });
 
@@ -137,7 +149,7 @@ ipcMain.handle('workspace:select', async () => {
   });
   if (result.canceled || !result.filePaths[0]) return settings.workspace || '';
   settings.workspace = result.filePaths[0];
-  saveSettings(userDataDir(), settings);
+  saveSettings(userDataDir(), settings, settingsCipher());
   // A new workspace starts a fresh session so recordings stay per-workspace.
   currentSession = null;
   return settings.workspace;
@@ -274,7 +286,7 @@ ipcMain.handle('wizard:create', async (_evt, { parentDir, folderName, slug, wall
   settings.workspace = res.dir;
   if (res.slug) settings.makefun.slug = res.slug;
   if (wallet) settings.makefun.wallet = wallet;
-  saveSettings(userDataDir(), settings);
+  saveSettings(userDataDir(), settings, settingsCipher());
   currentSession = null;
   return res;
 });
