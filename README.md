@@ -152,6 +152,27 @@ jalur submit sendiri belum pernah dijalankan dari aplikasi ini.
   (agregat + semua sesi), lewat jembatan preload `getSessionUsage` /
   `getUsageOverview`.
 
+## Git bawaan + panel turnamen kandidat (Stage 5)
+
+- **Panel "⎇ Git"** (`src/git.js`): status repo workspace aktif
+  (branch, upstream, ahead/behind, daftar staged / berubah / belum
+  terlacak), statistik diff, dan 20 commit terakhir. Satu-satunya
+  operasi tulis yang disengaja sempit: tombol **Commit Semua
+  Perubahan** menjalankan `git add -A` + commit dengan pesanmu di
+  dalam workspace. Tidak ada push, ganti branch, atau ubah riwayat
+  dari aplikasi — push tetap tindakan sadar di luar aplikasi.
+- **Panel "🏆 Turnamen"** (`src/tournament.js`): alur yang dipakai
+  untuk bounty teks yang dinilai juri — hasilkan 3–20 kandidat yang
+  benar-benar berbeda untuk satu brief + kriteria lewat provider
+  aktif (satu panggilan, output JSON array; parser toleran terhadap
+  daftar bernomor dan pemisah `---` bila model meleset), beri bintang
+  1–5, buang kandidat lemah, tetapkan satu pemenang. Ranking: pemenang
+  > berbintang (seri → yang lebih pendek menang) > belum dinilai >
+  terbuang. Turnamen tersimpan sebagai JSON di `<workspace>/.tournament/`
+  dan pemenang diekspor ke `<workspace>/TOURNAMENT-WINNER.md`.
+- IPC baru: `git:info`, `git:commit`, `tournament:generate`,
+  `tournament:list`, `tournament:load`, `tournament:save`.
+
 ## Roadmap v2
 
 - Mesin OpenCode terintegrasi sebagai jalur agent alternatif yang transkripnya
@@ -172,6 +193,8 @@ src/store.js            settings.json di userData
 src/makefun.js          pipeline make.fun (bundle/check/submit via CLI kit)
 src/wizard.js           wizard "Bounty Baru" (scaffold proyek + git init)
 src/usage.js            ringkasan usage token + estimasi biaya per sesi (Stage 4)
+src/git.js              git bawaan: status/log/diff/commit di workspace (Stage 5)
+src/tournament.js       turnamen kandidat: prompt/parse/ranking/penyimpanan (Stage 5)
 renderer/               UI chat murni HTML/CSS/JS (tema charcoal + gold)
 assets/makefun-rules.txt  salinan rules make.fun untuk Mode make.fun
 test/                   uji unit Node

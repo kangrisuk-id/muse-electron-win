@@ -24,6 +24,8 @@
     <span id="workspacePath" class="workspace-path">belum dipilih</span>
     <button id="wizardBtn" class="ghost">✦ Bounty Baru</button>
     <button id="usageBtn" class="ghost">📊 Sesi &amp; Biaya</button>
+    <button id="gitBtn" class="ghost">⎇ Git</button>
+    <button id="tournamentBtn" class="ghost">🏆 Turnamen</button>
     <button id="makefunBtn" class="ghost">make.fun</button>
     <button id="settingsBtn" class="gold">Settings</button>
   </div>
@@ -139,6 +141,53 @@
     <div id="usageTurns"></div>
     <div class="side-title">Semua sesi</div>
     <div id="usageSessions"></div>
+  </div>
+</div>
+
+<div id="gitOverlay" class="hidden">
+  <div id="gitPanel">
+    <div class="settings-head">
+      <h2>Git — Workspace Ini</h2>
+      <button id="gitClose" class="ghost">✕</button>
+    </div>
+    <p class="hint">Status, perubahan, dan riwayat commit repo workspace aktif. Commit di sini men-stage <b>semua</b> perubahan (<code>git add -A</code>) lalu commit dengan pesanmu. Push tetap dilakukan di luar aplikasi.</p>
+    <div id="gitSummary" class="mf-summary"></div>
+    <div id="gitFiles"></div>
+    <div class="mf-form">
+      <label>Pesan commit</label>
+      <input type="text" id="gitMessage" placeholder="mis. Stage 4: panel sesi & biaya" autocomplete="off" />
+    </div>
+    <div class="mf-actions">
+      <button id="gitRefreshBtn" class="ghost">↻ Segarkan</button>
+      <button id="gitCommitBtn" class="gold">Commit Semua Perubahan</button>
+    </div>
+    <div class="side-title">Riwayat (20 terakhir)</div>
+    <div id="gitLog"></div>
+  </div>
+</div>
+
+<div id="tournamentOverlay" class="hidden">
+  <div id="tournamentPanel">
+    <div class="settings-head">
+      <h2>Turnamen Kandidat</h2>
+      <button id="tournamentClose" class="ghost">✕</button>
+    </div>
+    <p class="hint">Buat banyak kandidat untuk satu brief, beri bintang 1–5, buang yang lemah, lalu tetapkan satu pemenang. Pemenang tersimpan ke <code>TOURNAMENT-WINNER.md</code> di workspace; semua turnamen tersimpan di <code>.tournament/</code>.</p>
+    <div class="mf-form">
+      <label>Brief</label>
+      <input type="text" id="tnBrief" placeholder="mis. Tagline untuk kedai kopi susu" autocomplete="off" />
+      <label>Kriteria juri (opsional, satu per baris tetap boleh)</label>
+      <input type="text" id="tnCriteria" placeholder="mis. Lucu, maks 6 kata, tanpa kata 'nikmat'" autocomplete="off" />
+      <label>Jumlah kandidat (3–20)</label>
+      <input type="text" id="tnCount" value="8" autocomplete="off" />
+    </div>
+    <div class="mf-actions">
+      <button id="tnGenerateBtn" class="gold">Buat Kandidat</button>
+      <select id="tnHistory"></select>
+      <button id="tnLoadBtn" class="ghost">Muat</button>
+    </div>
+    <div id="tnSummary" class="mf-summary hidden"></div>
+    <div id="tnCandidates"></div>
   </div>
 </div>
 

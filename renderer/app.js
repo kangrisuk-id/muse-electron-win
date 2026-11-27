@@ -196,6 +196,161 @@ async function openUsage() {
   $('usageOverlay').classList.remove('hidden');
 }
 
+/* --------------------------- Stage 5a: git ----------------------------- */
+
+async function openGit() {
+  await refreshGit();
+  $('gitOverlay').classList.remove('hidden');
+}
+
+async function refreshGit() {
+  const info = await window.api.gitInfo();
+  if (!info.isRepo) {
+    $('gitSummary').textContent = 'Workspace ini bukan repo git.\n' + info.workspace;
+    $('gitFiles').innerHTML = '';
+    $('gitLog').innerHTML = '';
+    $('gitCommitBtn').disabled = true;
+    return;
+  }
+  $('gitCommitBtn').disabled = false;
+  const s = info.status;
+  $('gitSummary').textContent =
+    'Branch: ' + (s.branch || '(detached)') + (s.upstream ? ' → ' + s.upstream : '') +
+    (s.ahead ? ' · ahead ' + s.ahead : '') + (s.behind ? ' · behind ' + s.behind : '') +
+    '\nStatus: ' + (s.clean ? 'bersih — tidak ada perubahan' :
+      s.staged.length + ' staged · ' + s.unstaged.length + ' berubah · ' + s.untracked.length + ' belum terlacak');
+  const group = (title, items) => items.length
+    ? '<div class="side-title">' + esc(title) + '</div>' + items.map((f) =>
+      '<div class="s-meta">[' + esc(f.code) + '] ' + esc(f.path) + '</div>').join('')
+    : '';
+  $('gitFiles').innerHTML =
+    group('Staged', s.staged) + group('Berubah (belum staged)', s.unstaged) + group('Belum terlacak', s.untracked);
+  $('gitLog').innerHTML = info.log.length
+    ? '<table class="usage-table"><thead><tr><th>Commit</th><th>Pesan</th><th>Tanggal</th><th>Penulis</th></tr></thead><tbody>' +
+      info.log.map((l) => '<tr><td>' + esc(l.short) + '</td><td>' + esc(l.subject) + '</td><td>' +
+        esc(l.date ? new Date(l.date).toLocaleString('id-ID') : '') + '</td><td>' + esc(l.author) + '</td></tr>').join('') +
+      '</tbody></table>'
+    : '<p class="hint">Belum ada commit.</p>';
+}
+
+async function gitCommit() {
+  const message = $('gitMessage').value.trim();
+  if (!message) { $('gitSummary').textContent = 'Isi pesan commit dulu.'; return; }
+  $('gitCommitBtn').disabled = true;
+  try {
+    const res = await window.api.gitCommit(message);
+    $('gitMessage').value = '';
+    addMessage('assistant', 'Commit dibuat: ' + res.commit.slice(0, 8) + ' — ' + res.subject);
+    await refreshGit();
+  } catch (err) {
+    $('gitSummary').textContent = 'Commit gagal: ' + (err && err.message ? err.message : String(err));
+  } finally {
+    $('gitCommitBtn').disabled = false;
+  }
+}
+
+/* ------------------------ Stage 5b: turnamen --------------------------- */
+
+let tnCurrent = null;
+let tnBusy = false;
+
+function tnSummary(text, kind) {
+  const box = $('tnSummary');
+  box.textContent = text;
+  box.className = 'mf-summary' + (kind ? ' ' + kind : '');
+}
+
+function tnRender() {
+  const box = $('tnCandidates');
+  if (!tnCurrent) { box.innerHTML = ''; return; }
+  const ranked = [...tnCurrent.candidates].sort((a, b) => {
+    const rank = (c) => c.winner ? 4 : c.eliminated ? 0 : c.rating > 0 ? 2 + c.rating / 10 : 1;
+    return rank(b) - rank(a);
+  });
+  box.innerHTML = ranked.map((c) => {
+    const stars = [1, 2, 3, 4, 5].map((n) =>
+      '<button class="star' + (c.rating >= n ? ' on' : '') + '" data-tn-star="' + c.id + ':' + n + '">★</button>').join('');
+    return '<div class="tn-card' + (c.winner ? ' winner' : '') + (c.eliminated ? ' eliminated' : '') + '">' +
+      '<div class="tn-text">' + esc(c.text) + '</div>' +
+      '<div class="tn-actions">' + stars +
+      '<button class="ghost" data-tn-elim="' + c.id + '">' + (c.eliminated ? '↩ Kembalikan' : '✕ Buang') + '</button>' +
+      '<button class="ghost" data-tn-win="' + c.id + '">' + (c.winner ? '🏆 Pemenang' : 'Jadikan pemenang') + '</button>' +
+      '</div></div>';
+  }).join('');
+  box.querySelectorAll('[data-tn-star]').forEach((el) => {
+    el.onclick = async () => {
+      const [id, n] = el.getAttribute('data-tn-star').split(':');
+      const c = tnCurrent.candidates.find((x) => x.id === id);
+      if (c) { c.rating = Number(n); await tnPersist(); }
+    };
+  });
+  box.querySelectorAll('[data-tn-elim]').forEach((el) => {
+    el.onclick = async () => {
+      const c = tnCurrent.candidates.find((x) => x.id === el.getAttribute('data-tn-elim'));
+      if (c) { c.eliminated = !c.eliminated; if (c.eliminated) c.winner = false; await tnPersist(); }
+    };
+  });
+  box.querySelectorAll('[data-tn-win]').forEach((el) => {
+    el.onclick = async () => {
+      const id = el.getAttribute('data-tn-win');
+      for (const c of tnCurrent.candidates) c.winner = c.id === id;
+      await tnPersist();
+      tnSummary('Pemenang ditetapkan dan disimpan ke TOURNAMENT-WINNER.md di workspace.', 'ok');
+    };
+  });
+}
+
+async function tnPersist() {
+  tnCurrent = await window.api.tournamentSave(tnCurrent);
+  tnRender();
+}
+
+async function tnRefreshHistory() {
+  const list = await window.api.tournamentList();
+  const sel = $('tnHistory');
+  sel.innerHTML = '';
+  if (!list.length) {
+    const opt = document.createElement('option');
+    opt.value = ''; opt.textContent = '(belum ada turnamen tersimpan)';
+    sel.appendChild(opt);
+    return;
+  }
+  for (const t of list) {
+    const opt = document.createElement('option');
+    opt.value = t.id;
+    const when = t.createdAt ? new Date(t.createdAt).toLocaleString('id-ID') : '';
+    opt.textContent = when + ' · ' + (t.brief || '').slice(0, 40) + ' · ' + t.stats.total + ' kandidat' + (t.stats.hasWinner ? ' · 🏆' : '');
+    sel.appendChild(opt);
+  }
+}
+
+async function openTournament() {
+  await tnRefreshHistory();
+  $('tournamentOverlay').classList.remove('hidden');
+}
+
+async function tnGenerate() {
+  if (tnBusy) return;
+  const brief = $('tnBrief').value.trim();
+  const criteria = $('tnCriteria').value.trim();
+  const count = $('tnCount').value.trim();
+  if (!brief) { tnSummary('Isi brief dulu.', 'bad'); return; }
+  tnBusy = true;
+  $('tnGenerateBtn').disabled = true;
+  tnSummary('Membuat kandidat dengan provider aktif…', '');
+  try {
+    tnCurrent = await window.api.tournamentGenerate({ brief, criteria, count: Number(count) || 8 });
+    tnSummary(tnCurrent.candidates.length + ' kandidat dibuat. Beri bintang, buang yang lemah, tetapkan pemenang.', 'ok');
+    tnRender();
+    await tnRefreshHistory();
+  } catch (err) {
+    tnSummary('Gagal: ' + (err && err.message ? err.message : String(err)), 'bad');
+  } finally {
+    tnBusy = false;
+    $('tnGenerateBtn').disabled = false;
+  }
+}
+
 /* ------------------------------ settings ------------------------------ */
 
 function renderSettingsForm() {
@@ -529,6 +684,24 @@ async function init() {
   window.api.onMakefunLog((evt) => mfLog(evt.line, evt.stream === 'stderr'));
   $('usageBtn').onclick = () => { openUsage().catch((err) => addMessage('error', err.message || String(err))); };
   $('usageClose').onclick = () => $('usageOverlay').classList.add('hidden');
+  $('gitBtn').onclick = () => { openGit().catch((err) => addMessage('error', err.message || String(err))); };
+  $('gitClose').onclick = () => $('gitOverlay').classList.add('hidden');
+  $('gitRefreshBtn').onclick = () => { refreshGit().catch((err) => { $('gitSummary').textContent = 'Error: ' + err.message; }); };
+  $('gitCommitBtn').onclick = gitCommit;
+  $('tournamentBtn').onclick = () => { openTournament().catch((err) => addMessage('error', err.message || String(err))); };
+  $('tournamentClose').onclick = () => $('tournamentOverlay').classList.add('hidden');
+  $('tnGenerateBtn').onclick = tnGenerate;
+  $('tnLoadBtn').onclick = async () => {
+    const id = $('tnHistory').value;
+    if (!id) return;
+    tnCurrent = await window.api.tournamentLoad(id);
+    if (tnCurrent) {
+      $('tnBrief').value = tnCurrent.brief || '';
+      $('tnCriteria').value = tnCurrent.criteria || '';
+      tnSummary('Turnamen dimuat: ' + tnCurrent.candidates.length + ' kandidat.', 'ok');
+      tnRender();
+    }
+  };
   $('wizardBtn').onclick = () => openWizard();
   $('wizardClose').onclick = () => $('wizardOverlay').classList.add('hidden');
   $('wzParentPick').onclick = async () => {

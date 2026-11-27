@@ -23,6 +23,9 @@ const { createToolRunner } = require('./src/tools');
 const { runAgentTurn } = require('./src/agent');
 const makefun = require('./src/makefun');
 const { summarizeEntries, summarizeSessions } = require('./src/usage');
+const { createGit } = require('./src/git');
+const tournament = require('./src/tournament');
+const { chatCompletion } = require('./src/providers');
 const { createBountyProject, DEFAULT_WALLET } = require('./src/wizard');
 
 let win = null;
@@ -169,6 +172,73 @@ ipcMain.handle('session:usageOverview', () => {
     };
   });
   return { overview: summarizeSessions(items), sessions: items };
+});
+
+/* ----------------- Stage 5: git bawaan + turnamen ---------------------- */
+
+let gitBusy = false;
+let tournamentBusy = false;
+
+ipcMain.handle('git:info', async () => {
+  if (!settings.workspace) throw new Error('Pilih folder workspace dulu.');
+  return createGit(settings.workspace).info();
+});
+
+ipcMain.handle('git:commit', async (_evt, { message }) => {
+  if (!settings.workspace) throw new Error('Pilih folder workspace dulu.');
+  if (gitBusy) throw new Error('Operasi git lain sedang berjalan.');
+  gitBusy = true;
+  try {
+    return await createGit(settings.workspace).commitAll(message);
+  } finally {
+    gitBusy = false;
+  }
+});
+
+ipcMain.handle('tournament:generate', async (_evt, { brief, criteria, count }) => {
+  if (!settings.workspace) throw new Error('Pilih folder workspace dulu.');
+  if (tournamentBusy) throw new Error('Turnamen lain sedang dibuat — tunggu selesai.');
+  const active = resolveActive(settings);
+  if (!active.apiKey) throw new Error('API key provider aktif belum diisi. Buka Settings.');
+  if (!String(brief || '').trim()) throw new Error('Isi brief dulu.');
+  tournamentBusy = true;
+  try {
+    const prompt = tournament.buildCandidatePrompt({ brief, criteria, count });
+    const json = await chatCompletion({
+      providerId: active.providerId,
+      apiKey: active.apiKey,
+      model: active.model,
+      messages: [
+        { role: 'system', content: 'Kamu menghasilkan kandidat teks untuk kontes yang dinilai juri. Patuhi aturan output persis.' },
+        { role: 'user', content: prompt },
+      ],
+    });
+    const text = (json.choices[0].message && json.choices[0].message.content) || '';
+    const texts = tournament.parseCandidates(text, tournament.clampCount(count));
+    if (!texts.length) throw new Error('Model tidak mengembalikan kandidat yang bisa dibaca. Coba lagi.');
+    const t = tournament.createTournament({ brief, criteria, texts });
+    tournament.saveTournament(settings.workspace, t);
+    return t;
+  } finally {
+    tournamentBusy = false;
+  }
+});
+
+ipcMain.handle('tournament:list', () => {
+  if (!settings.workspace) return [];
+  return tournament.listTournaments(settings.workspace);
+});
+
+ipcMain.handle('tournament:load', (_evt, id) => {
+  if (!settings.workspace) return null;
+  return tournament.loadTournament(settings.workspace, id);
+});
+
+ipcMain.handle('tournament:save', (_evt, t) => {
+  if (!settings.workspace) throw new Error('Pilih folder workspace dulu.');
+  if (!t || !t.id || !Array.isArray(t.candidates)) throw new Error('Data turnamen tidak valid.');
+  tournament.saveTournament(settings.workspace, t);
+  return tournament.loadTournament(settings.workspace, t.id);
 });
 
 ipcMain.handle('session:load', (_evt, id) => {
