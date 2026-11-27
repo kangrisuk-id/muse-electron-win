@@ -11,7 +11,7 @@
  * It is NOT an official Meta app.
  */
 
-const { app, BrowserWindow, ipcMain, dialog, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, safeStorage, shell } = require('electron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -451,6 +451,17 @@ ipcMain.handle('makefun:submit', async (_evt, { kitDir, slug, repoUrl, title }) 
     );
     return { code: res.code, submissionId: res.submissionId, claimCode: res.claimCode, checkedLine: res.checkedLine };
   });
+});
+
+// Stage 11: links inside rendered Markdown open in the system
+// browser — only http(s)/mailto, never arbitrary protocols.
+ipcMain.handle('app:openExternal', async (_evt, url) => {
+  const u = String(url || '');
+  if (/^(https?:\/\/|mailto:)/i.test(u)) {
+    await shell.openExternal(u);
+    return true;
+  }
+  return false;
 });
 
 ipcMain.handle('chat:abort', () => {

@@ -258,6 +258,30 @@ jalur submit sendiri belum pernah dijalankan dari aplikasi ini.
   dipotong dengan penanda eksplisit "…(dipotong untuk ekspor)";
   tidak ada yang hilang diam-diam.
 
+## Redesign UI total (Stage 11)
+
+Atas permintaan user (UI lama terasa kalah nyaman dari Muse/OpenCode),
+seluruh tampilan ditulis ulang — mesin di baliknya tidak berubah:
+
+- **Layout:** sidebar kiri tetap (brand + ikon aplikasi, tombol Sesi
+  Baru, daftar sesi, navigasi panel, workspace & toggle di kaki
+  sidebar) dan area chat dengan **kolom baca terpusat maks 860px**.
+  Header lama yang penuh tombol dihapus; header chat hanya menampilkan
+  info provider/model aktif.
+- **Composer** satu kotak membulat besar di bawah dengan bayangan dan
+  ring fokus emas; tombol Kirim/Stop di dalamnya.
+- **Markdown beneran:** jawaban agent dirender oleh
+  `renderer/markdown.js` — renderer kecil tanpa dependensi yang
+  **aman** (HTML mentah selalu di-escape; hanya skema http/https/mailto
+  menjadi tautan, dibuka di browser sistem via `app:openExternal`).
+  Mendukung heading, tebal/miring/coret, kode inline, blok kode
+  berlabel bahasa + tombol **Salin**, daftar & daftar tugas, kutipan,
+  tabel, dan garis pemisah. Streaming tetap teks polos saat mengalir,
+  lalu dirender Markdown saat selesai.
+- Pesan user menjadi gelembung lembut di kanan; jawaban agent tampil
+  full-width bergaya dokumen; tool call menjadi kartu satu baris yang
+  tenang dan bisa dibuka.
+
 ## Roadmap v2
 
 - Mesin OpenCode terintegrasi sebagai jalur agent alternatif yang transkripnya

@@ -7,51 +7,60 @@
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<header>
-  <div class="brand">
-    <div class="logo">M</div>
-    <div>
-      <div class="app-name">Muse Agent Desktop</div>
-      <div class="app-sub" id="activeInfo">—</div>
-    </div>
-  </div>
-  <div class="header-actions">
-    <label class="makefun-toggle" title="Suntikkan rules make.fun ke system prompt">
-      <input type="checkbox" id="makefunToggle" />
-      <span>Mode make.fun</span>
-    </label>
-    <label class="makefun-toggle" title="Izin untuk tool yang mengubah sesuatu (write_file, edit_file, run_command). Tool baca tidak pernah ditanya.">
-      <span>Izin tool:</span>
-      <select id="permMode">
-        <option value="tanya">Tanya dulu</option>
-        <option value="bebas">Bebas</option>
-      </select>
-    </label>
-    <button id="workspaceBtn" class="ghost">📁 Workspace</button>
-    <span id="workspacePath" class="workspace-path">belum dipilih</span>
-    <button id="wizardBtn" class="ghost">✦ Bounty Baru</button>
-    <button id="usageBtn" class="ghost">📊 Sesi &amp; Biaya</button>
-    <button id="gitBtn" class="ghost">⎇ Git</button>
-    <button id="tournamentBtn" class="ghost">🏆 Turnamen</button>
-    <button id="makefunBtn" class="ghost">make.fun</button>
-    <button id="settingsBtn" class="gold">Settings</button>
-  </div>
-</header>
-
 <div id="layout">
   <aside id="sidebar">
+    <div class="brand">
+      <img class="brand-icon" src="../build/icon.png" alt="" />
+      <div>
+        <div class="app-name">Muse Agent</div>
+        <div class="app-sub">Desktop · API key milikmu</div>
+      </div>
+    </div>
+
     <button id="newSessionBtn" class="gold wide">+ Sesi Baru</button>
+
     <div class="side-title">Sesi Tersimpan</div>
     <div id="sessionList"></div>
+
+    <div class="side-nav">
+      <div class="side-title">Panel</div>
+      <button id="usageBtn" class="nav-btn">📊 Sesi &amp; Biaya</button>
+      <button id="gitBtn" class="nav-btn">⎇ Git</button>
+      <button id="tournamentBtn" class="nav-btn">🏆 Turnamen</button>
+      <button id="wizardBtn" class="nav-btn">✦ Bounty Baru</button>
+      <button id="makefunBtn" class="nav-btn">make.fun</button>
+      <button id="settingsBtn" class="nav-btn">⚙ Settings</button>
+    </div>
+
+    <div class="side-foot">
+      <button id="workspaceBtn" class="nav-btn">📁 Workspace</button>
+      <div id="workspacePath" class="workspace-path">belum dipilih</div>
+      <label class="makefun-toggle" title="Suntikkan rules make.fun ke system prompt">
+        <input type="checkbox" id="makefunToggle" />
+        <span>Mode make.fun</span>
+      </label>
+      <label class="makefun-toggle" title="Izin untuk tool yang mengubah sesuatu (write_file, edit_file, run_command). Tool baca tidak pernah ditanya.">
+        <span>Izin tool:</span>
+        <select id="permMode">
+          <option value="tanya">Tanya dulu</option>
+          <option value="bebas">Bebas</option>
+        </select>
+      </label>
+    </div>
   </aside>
 
   <main id="chatPane">
+    <header id="chatHead">
+      <div id="activeInfo" class="active-info">—</div>
+    </header>
     <div id="messages"></div>
     <div id="composer">
-      <textarea id="input" rows="3" placeholder="Tulis tugas untuk agent… (Enter = kirim, Shift+Enter = baris baru)"></textarea>
-      <div class="composer-actions">
-        <button id="stopBtn" class="ghost" disabled>■ Stop</button>
-        <button id="sendBtn" class="gold">Kirim</button>
+      <div class="composer-box">
+        <textarea id="input" rows="2" placeholder="Tulis tugas untuk agent… (Enter = kirim, Shift+Enter = baris baru)"></textarea>
+        <div class="composer-actions">
+          <button id="stopBtn" class="ghost" disabled>■ Stop</button>
+          <button id="sendBtn" class="gold">Kirim ↑</button>
+        </div>
       </div>
     </div>
   </main>
@@ -204,6 +213,7 @@
   </div>
 </div>
 
+<script src="markdown.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

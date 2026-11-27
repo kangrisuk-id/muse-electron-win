@@ -25,8 +25,13 @@ function scrollDown() {
 function addMessage(role, content) {
   const div = document.createElement('div');
   div.className = 'msg ' + role;
-  const who = role === 'user' ? 'Kamu' : role === 'error' ? 'Error' : 'Agent';
-  div.innerHTML = '<span class="who">' + who + '</span>' + esc(content);
+  const who = role === 'user' ? 'Kamu' : role === 'error' ? 'Error' : role === 'system' ? '' : 'Agent';
+  // Stage 11: assistant answers render as Markdown; everything else
+  // stays literal text.
+  const body = role === 'assistant'
+    ? window.MuseMarkdown.renderMarkdown(content || '')
+    : esc(content);
+  div.innerHTML = (who ? '<span class="who">' + who + '</span>' : '') + body;
   $('messages').appendChild(div);
   scrollDown();
   return div;
@@ -47,7 +52,9 @@ function appendDelta(delta) {
 }
 function settleStream(finalContent) {
   if (streamingBubble) {
-    streamingBubble.innerHTML = '<span class="who">Agent</span>' + esc(finalContent || streamingText);
+    // Stage 11: the settled bubble renders the full Markdown.
+    streamingBubble.innerHTML = '<span class="who">Agent</span>'
+      + window.MuseMarkdown.renderMarkdown(finalContent || streamingText);
     streamingBubble = null;
     streamingText = '';
     scrollDown();
@@ -762,6 +769,27 @@ async function init() {
     card.appendChild(done);
     $('messages').appendChild(card);
     $('messages').scrollTop = $('messages').scrollHeight;
+  });
+
+  // Stage 11: code-block copy buttons + external links (never let a
+  // link navigate the app window away).
+  $('messages').addEventListener('click', (e) => {
+    const copyBtn = e.target.closest('.copy-btn');
+    if (copyBtn) {
+      const pre = copyBtn.closest('.codeblock') && copyBtn.closest('.codeblock').querySelector('pre code');
+      if (pre && navigator.clipboard) {
+        navigator.clipboard.writeText(pre.textContent || '').then(() => {
+          copyBtn.textContent = 'Tersalin ✓';
+          setTimeout(() => { copyBtn.textContent = 'Salin'; }, 1500);
+        }).catch(() => {});
+      }
+      return;
+    }
+    const link = e.target.closest('a[data-external]');
+    if (link) {
+      e.preventDefault();
+      window.api.openExternal(link.getAttribute('href'));
+    }
   });
 
   $('sendBtn').onclick = send;

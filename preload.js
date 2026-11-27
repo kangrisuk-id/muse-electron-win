@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld('api', {
   tournamentSave: (t) => ipcRenderer.invoke('tournament:save', t),
   sendChat: (text) => ipcRenderer.invoke('chat:send', text),
   abortChat: () => ipcRenderer.invoke('chat:abort'),
+  openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
   onApprovalRequest: (cb) => ipcRenderer.on('agent:approval-request', (_evt, req) => cb(req)),
   respondApproval: (id, decision) => ipcRenderer.send('agent:approval-response', { id, decision }),
   getPermissions: () => ipcRenderer.invoke('permissions:get'),
