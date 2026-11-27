@@ -654,6 +654,54 @@ async function init() {
     if (evt.kind === 'assistant') addMessage('assistant', evt.content);
     else if (evt.kind === 'tool_call') addToolCall(evt.id, evt.name, evt.args);
     else if (evt.kind === 'tool_result') fillToolResult(evt.id, evt.name, evt.result, evt.isError);
+    else if (evt.kind === 'tool_denied') addMessage('system', '⛔ Tool ' + evt.name + ' ditolak — tidak dijalankan.');
+  });
+
+  // Stage 7: approval cards for mutating tools + mode selector.
+  if (settings.permissions && settings.permissions.mode) {
+    $('permMode').value = settings.permissions.mode;
+  }
+  $('permMode').onchange = async (e) => {
+    const perms = await window.api.setPermissionMode(e.target.value);
+    settings.permissions = perms;
+  };
+  window.api.onApprovalRequest((req) => {
+    const card = document.createElement('div');
+    card.className = 'approval-card';
+    const title = document.createElement('div');
+    title.className = 'appr-title';
+    title.textContent = '🔐 Izin tool: ' + req.name;
+    const summary = document.createElement('div');
+    summary.className = 'appr-summary';
+    summary.textContent = req.summary || req.name;
+    const actions = document.createElement('div');
+    actions.className = 'appr-actions';
+    const done = document.createElement('div');
+    done.className = 'appr-done';
+    const labels = {
+      once: 'Izinkan sekali', session: 'Izinkan sesi ini',
+      always: 'Selalu izinkan tool ini', deny: 'Tolak',
+    };
+    for (const decision of ['once', 'session', 'always', 'deny']) {
+      const b = document.createElement('button');
+      b.textContent = labels[decision];
+      if (decision === 'deny') b.className = 'deny ghost';
+      else b.className = 'ghost';
+      b.onclick = () => {
+        window.api.respondApproval(req.id, decision);
+        actions.remove();
+        done.textContent = decision === 'deny'
+          ? 'Ditolak — tool tidak dijalankan.'
+          : 'Diizinkan (' + labels[decision].toLowerCase() + ').';
+      };
+      actions.appendChild(b);
+    }
+    card.appendChild(title);
+    card.appendChild(summary);
+    card.appendChild(actions);
+    card.appendChild(done);
+    $('messages').appendChild(card);
+    $('messages').scrollTop = $('messages').scrollHeight;
   });
 
   $('sendBtn').onclick = send;

@@ -194,6 +194,26 @@ jalur submit sendiri belum pernah dijalankan dari aplikasi ini.
   key-nya; cipher text tidak pernah bocor menjadi "key" yang terkirim
   ke provider.
 
+## Mode izin tool (Stage 7)
+
+- **`src/permissions.js`** — gerbang izin murni. Tool baca
+  (`read_file`, `list_dir`) tidak pernah ditanya. Tool pengubah
+  (`write_file`, `edit_file`, `run_command`) mengikuti
+  `settings.permissions.mode`: **`tanya`** (default — kartu
+  persetujuan muncul di chat sebelum tool jalan) atau **`bebas`**
+  (perilaku lama, tanpa tanya).
+- **Pilihan jawaban pada kartu:** *Izinkan sekali* · *Izinkan sesi
+  ini* (berlaku sampai sesi/workspace berganti) · *Selalu izinkan
+  tool ini* (tersimpan di `settings.permissions.alwaysTools`) ·
+  *Tolak*.
+- **Penolakan aman:** tool yang ditolak tidak pernah dieksekusi;
+  model menerima hasil tool "DITOLAK oleh user" agar bisa
+  menyesuaikan. Prompt yang tidak dijawab dalam 5 menit otomatis
+  ditolak, dan tombol Stop menolak semua prompt yang menggantung.
+- Loop agent berkonsultasi lewat callback `approveTool` yang
+  diinjeksikan proses utama; tanpa callback (mis. pada test) semua
+  tool berjalan seperti sebelumnya.
+
 ## Roadmap v2
 
 - Mesin OpenCode terintegrasi sebagai jalur agent alternatif yang transkripnya
@@ -217,6 +237,7 @@ src/usage.js            ringkasan usage token + estimasi biaya per sesi (Stage 4
 src/git.js              git bawaan: status/log/diff/commit di workspace (Stage 5)
 src/tournament.js       turnamen kandidat: prompt/parse/ranking/penyimpanan (Stage 5)
 src/secrets.js          enkripsi API key di disk via safeStorage OS (Stage 6)
+src/permissions.js      gerbang izin tool: mode tanya/bebas + grant sesi & permanen (Stage 7)
 renderer/               UI chat murni HTML/CSS/JS (tema charcoal + gold)
 assets/makefun-rules.txt  salinan rules make.fun untuk Mode make.fun
 test/                   uji unit Node

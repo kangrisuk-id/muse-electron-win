@@ -95,6 +95,16 @@ button.wide { width: 100%; }
 .msg.error { background: rgba(224, 101, 95, 0.12); border: 1px solid var(--danger); margin-right: auto; }
 .msg .who { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
 
+.approval-card {
+  border: 1px solid var(--gold); border-radius: 8px; padding: 10px 12px;
+  margin: 8px 0; background: rgba(201, 162, 39, 0.08);
+}
+.approval-card .appr-title { font-weight: 700; color: var(--gold); margin-bottom: 4px; }
+.approval-card .appr-summary { font-family: Consolas, monospace; font-size: 12px; word-break: break-all; }
+.approval-card .appr-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.approval-card .appr-done { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.approval-card button.deny { border-color: #b0483e; color: #e08a80; }
+
 details.tool {
   max-width: 82%;
   background: #191b20;

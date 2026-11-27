@@ -36,6 +36,7 @@ const { createGit } = require('./src/git');
 const tournament = require('./src/tournament');
 const { chatCompletion } = require('./src/providers');
 const { createBountyProject, DEFAULT_WALLET } = require('./src/wizard');
+const { PermissionGate } = require('./src/permissions');
 
 let win = null;
 let settings = null;
@@ -44,6 +45,65 @@ let currentSession = null; // {meta, history: []}
 let currentAbort = null;
 let chatBusy = false;
 let makefunBusy = false;
+
+/* --------------------- Stage 7: izin tool ------------------------------ */
+// One gate per app run; session grants reset whenever the session or
+// workspace changes. Pending approval prompts resolve through
+// 'agent:approval-response'; Stop/abort denies everything outstanding,
+// and an unanswered prompt times out to DENY (safe default).
+const permissionGate = new PermissionGate({ mode: 'tanya', alwaysTools: [] });
+const pendingApprovals = new Map(); // id -> {resolve, name}
+let approvalSeq = 0;
+const APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
+
+function denyAllPendingApprovals() {
+  for (const entry of pendingApprovals.values()) entry.resolve(false);
+  pendingApprovals.clear();
+}
+
+function approveToolViaUi(name, args) {
+  permissionGate.setPermissions(settings.permissions);
+  if (permissionGate.decide(name) === 'allow') return Promise.resolve(true);
+  if (!win || win.isDestroyed()) return Promise.resolve(false);
+  const id = 'appr-' + (++approvalSeq);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      if (pendingApprovals.delete(id)) resolve(false);
+    }, APPROVAL_TIMEOUT_MS);
+    pendingApprovals.set(id, {
+      name,
+      resolve: (ok) => { clearTimeout(timer); resolve(ok); },
+    });
+    win.webContents.send('agent:approval-request', {
+      id, name, summary: PermissionGate.summarize(name, args), args,
+    });
+  });
+}
+
+ipcMain.on('agent:approval-response', (_evt, payload) => {
+  const { id, decision } = payload || {};
+  const entry = pendingApprovals.get(id);
+  if (!entry) return;
+  pendingApprovals.delete(id);
+  const { approved, persistAlways } = permissionGate.applyDecision(entry.name, decision);
+  if (persistAlways) {
+    settings.permissions = permissionGate.permissions;
+    saveSettings(userDataDir(), settings, settingsCipher());
+  }
+  entry.resolve(approved);
+});
+
+ipcMain.handle('permissions:get', () => {
+  permissionGate.setPermissions(settings.permissions);
+  return permissionGate.permissions;
+});
+
+ipcMain.handle('permissions:setMode', (_evt, mode) => {
+  permissionGate.setPermissions({ ...(settings.permissions || {}), mode });
+  settings.permissions = permissionGate.permissions;
+  saveSettings(userDataDir(), settings, settingsCipher());
+  return settings.permissions;
+});
 
 function userDataDir() {
   return app.getPath('userData');
@@ -152,11 +212,13 @@ ipcMain.handle('workspace:select', async () => {
   saveSettings(userDataDir(), settings, settingsCipher());
   // A new workspace starts a fresh session so recordings stay per-workspace.
   currentSession = null;
+  permissionGate.resetSession();
   return settings.workspace;
 });
 
 ipcMain.handle('session:new', () => {
   currentSession = null;
+  permissionGate.resetSession();
   const s = ensureSession();
   return { meta: s.meta, messages: [] };
 });
@@ -369,6 +431,7 @@ ipcMain.handle('makefun:submit', async (_evt, { kitDir, slug, repoUrl, title }) 
 });
 
 ipcMain.handle('chat:abort', () => {
+  denyAllPendingApprovals();
   if (currentAbort) currentAbort.abort();
   return true;
 });
@@ -402,6 +465,7 @@ ipcMain.handle('chat:send', async (_evt, text) => {
       workspace: settings.workspace,
       makefunRules: settings.makefunMode ? loadMakefunRules() : null,
       signal: currentAbort.signal,
+      approveTool: approveToolViaUi,
       onEvent: (evt) => {
         if (win && !win.isDestroyed()) win.webContents.send('agent:event', evt);
       },

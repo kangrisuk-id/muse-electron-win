@@ -48,6 +48,7 @@ function defaultSettings() {
     activeProvider: 'gemini',
     providers,
     workspace: '',
+    permissions: { mode: 'tanya', alwaysTools: [] },
     makefunMode: false,
     makefun: { kitDir: '', keypairPath: '', slug: '', repoUrl: '', title: '', wallet: '' },
   };
@@ -72,6 +73,7 @@ function loadSettings(userDataDir, cipher) {
     const merged = {
       ...base, ...raw,
       providers: { ...base.providers },
+      permissions: { ...base.permissions, ...(raw.permissions || {}) },
       makefun: { ...base.makefun, ...(raw.makefun || {}) },
     };
     for (const id of PROVIDER_ORDER) {

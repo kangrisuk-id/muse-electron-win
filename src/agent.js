@@ -10,6 +10,7 @@
 
 const { chatCompletion } = require('./providers');
 const { assistantMessageRecord } = require('./sessions');
+const { isMutatingTool } = require('./permissions');
 
 const MAX_ROUNDS = 30;
 
@@ -45,12 +46,16 @@ function buildSystemPrompt({ workspace, makefunRules }) {
  * @param {string|null} opts.makefunRules  rules text when make.fun mode is on
  * @param {function} opts.onEvent   ({kind, ...}) => void
  * @param {AbortSignal} [opts.signal]
+ * @param {function} [opts.approveTool] Stage 7: async (name, args) =>
+ *   boolean, consulted before MUTATING tools only. Absent = everything
+ *   allowed. A denied call never executes; the model gets a denial
+ *   tool result and a 'tool_denied' event is emitted.
  * @returns {Promise<{finalText: string, rounds: number}>}
  */
 async function runAgentTurn(opts) {
   const {
     providerId, apiKey, model, history, toolRunner,
-    session, workspace, makefunRules, onEvent, signal,
+    session, workspace, makefunRules, onEvent, signal, approveTool,
   } = opts;
   const emit = typeof onEvent === 'function' ? onEvent : () => {};
   const record = (type, data) => {
@@ -121,11 +126,25 @@ async function runAgentTurn(opts) {
 
       let resultText;
       let isError = false;
-      try {
-        resultText = await toolRunner.execute(name, args);
-      } catch (err) {
-        isError = true;
-        resultText = 'ERROR: ' + (err && err.message ? err.message : String(err));
+      let denied = false;
+      if (typeof approveTool === 'function' && isMutatingTool(name)) {
+        let approved = false;
+        try { approved = await approveTool(name, args); } catch (_) { approved = false; }
+        if (!approved) {
+          denied = true;
+          isError = true;
+          resultText = 'DITOLAK oleh user: tool ' + name + ' tidak diizinkan. '
+            + 'Jangan mencoba mengulang panggilan yang sama; lanjutkan tanpa tool ini atau sampaikan ke user.';
+          emit({ kind: 'tool_denied', id: call.id, name, round });
+        }
+      }
+      if (!denied) {
+        try {
+          resultText = await toolRunner.execute(name, args);
+        } catch (err) {
+          isError = true;
+          resultText = 'ERROR: ' + (err && err.message ? err.message : String(err));
+        }
       }
       emit({ kind: 'tool_result', id: call.id, name, result: resultText, isError, round });
       // Record the result as a user line holding a tool_result block that
