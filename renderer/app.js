@@ -88,9 +88,11 @@ async function refreshSessions() {
     const div = document.createElement('div');
     div.className = 'session-item' + (s.id === currentSessionId ? ' active' : '');
     const when = s.createdAt ? new Date(s.createdAt).toLocaleString('id-ID') : '';
+    const usageMeta = s.usage && s.usage.totalTokens
+      ? ' · ' + fmtTokens(s.usage.totalTokens) + ' token · ' + fmtUSD(s.usage.costUSD) : '';
     div.innerHTML =
       '<div class="s-preview">' + esc(s.preview || '(sesi kosong)') + '</div>' +
-      '<div class="s-meta">' + esc(when) + ' · ' + esc(s.provider || '') + ' · ' + s.messages + ' pesan</div>';
+      '<div class="s-meta">' + esc(when) + ' · ' + esc(s.provider || '') + ' · ' + s.messages + ' pesan' + esc(usageMeta) + '</div>';
     div.title = s.cwd || '';
     div.onclick = () => loadSession(s.id);
     box.appendChild(div);
@@ -109,6 +111,89 @@ async function loadSession(id) {
     else if (e.type === 'tool_result') fillToolResult(null, e.name, e.result || '', e.isError);
   }
   await refreshSessions();
+}
+
+/* ------------------------- Stage 4: usage panel ------------------------ */
+
+function fmtTokens(n) {
+  const v = Number(n) || 0;
+  if (v < 1000) return String(v);
+  if (v < 1e6) return (v / 1000).toFixed(v < 10000 ? 1 : 0).replace(/\.0$/, '') + ' rb';
+  return (v / 1e6).toFixed(2).replace(/\.?0+$/, '') + ' jt';
+}
+
+function fmtUSD(c) {
+  if (c === null || c === undefined) return '—';
+  const v = Number(c);
+  if (!Number.isFinite(v)) return '—';
+  if (v === 0) return '$0';
+  if (v < 0.01) return '$' + v.toFixed(4);
+  return '$' + v.toFixed(2);
+}
+
+function fmtDuration(ms) {
+  const s = Math.round((Number(ms) || 0) / 1000);
+  if (s < 60) return s + ' dtk';
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + ' mnt ' + (s % 60) + ' dtk';
+  return Math.floor(m / 60) + ' jam ' + (m % 60) + ' mnt';
+}
+
+function usageCard(label, value, sub) {
+  return '<div class="usage-card"><div class="u-value">' + esc(value) + '</div>' +
+    '<div class="u-label">' + esc(label) + '</div>' +
+    (sub ? '<div class="u-sub">' + esc(sub) + '</div>' : '') + '</div>';
+}
+
+async function openUsage() {
+  const data = await window.api.getUsageOverview();
+  const o = data.overview;
+  $('usageOverview').innerHTML =
+    usageCard('Total token', fmtTokens(o.totalTokens), fmtTokens(o.inputTokens) + ' masuk · ' + fmtTokens(o.outputTokens) + ' keluar') +
+    usageCard('Estimasi biaya', fmtUSD(o.costUSD), o.unpricedTokens ? fmtTokens(o.unpricedTokens) + ' token belum terharga' : 'semua turn terharga') +
+    usageCard('Sesi', String(o.sessions), o.assistantTurns + ' turn asisten · ' + o.toolCalls + ' tool call');
+
+  const cur = currentSessionId ? await window.api.getSessionUsage(currentSessionId) : null;
+  if (cur && cur.summary) {
+    const s = cur.summary;
+    $('usageCurrent').textContent =
+      (cur.meta.provider || '?') + ' · ' + (cur.meta.model || '?') +
+      '\nToken: ' + fmtTokens(s.inputTokens) + ' masuk · ' + fmtTokens(s.outputTokens) + ' keluar' +
+      (s.cacheReadTokens ? ' · cache baca ' + fmtTokens(s.cacheReadTokens) : '') +
+      '\nEstimasi: ' + fmtUSD(s.costUSD) +
+      (s.unpricedTokens ? ' (+ ' + fmtTokens(s.unpricedTokens) + ' token belum terharga)' : '') +
+      '\nAktivitas: ' + s.userMessages + ' pesan user · ' + s.assistantTurns + ' turn · ' +
+      s.toolCalls + ' tool call · ' + s.toolResults + ' hasil · durasi ' + fmtDuration(s.durationMs);
+    const rows = s.turns.map((t, i) =>
+      '<tr><td>' + (i + 1) + '</td><td>' + esc(t.timestamp ? new Date(t.timestamp).toLocaleTimeString('id-ID') : '') +
+      '</td><td>' + esc(t.model || '') + '</td><td>' + fmtTokens(t.inputTokens) + '</td><td>' +
+      fmtTokens(t.outputTokens) + '</td><td>' + fmtUSD(t.costUSD) + '</td></tr>').join('');
+    $('usageTurns').innerHTML = s.turns.length
+      ? '<table class="usage-table"><thead><tr><th>#</th><th>Waktu</th><th>Model</th><th>Masuk</th><th>Keluar</th><th>Estimasi</th></tr></thead><tbody>' + rows + '</tbody></table>'
+      : '<p class="hint">Sesi ini belum punya turn ber-usage tercatat.</p>';
+  } else {
+    $('usageCurrent').textContent = 'Belum ada sesi aktif.';
+    $('usageTurns').innerHTML = '';
+  }
+
+  const items = data.sessions.map((it) => {
+    const s = it.summary;
+    const when = it.createdAt ? new Date(it.createdAt).toLocaleString('id-ID') : '';
+    return '<div class="session-item' + (it.id === currentSessionId ? ' active' : '') + '" data-usage-session="' + esc(it.id) + '">' +
+      '<div class="s-preview">' + esc(it.preview || '(sesi kosong)') + '</div>' +
+      '<div class="s-meta">' + esc(when) + ' · ' + esc(it.provider || '') + '/' + esc(it.model || '') + '</div>' +
+      '<div class="s-meta">' + fmtTokens(s.totalTokens) + ' token · ' + fmtUSD(s.costUSD) +
+      (s.unpricedTokens ? ' · ' + fmtTokens(s.unpricedTokens) + ' belum terharga' : '') +
+      ' · ' + s.toolCalls + ' tool · ' + fmtDuration(s.durationMs) + '</div></div>';
+  }).join('');
+  $('usageSessions').innerHTML = items || '<p class="hint">Belum ada sesi tersimpan.</p>';
+  document.querySelectorAll('[data-usage-session]').forEach((el) => {
+    el.onclick = async () => {
+      $('usageOverlay').classList.add('hidden');
+      await loadSession(el.getAttribute('data-usage-session'));
+    };
+  });
+  $('usageOverlay').classList.remove('hidden');
 }
 
 /* ------------------------------ settings ------------------------------ */
@@ -442,6 +527,8 @@ async function init() {
     }
   };
   window.api.onMakefunLog((evt) => mfLog(evt.line, evt.stream === 'stderr'));
+  $('usageBtn').onclick = () => { openUsage().catch((err) => addMessage('error', err.message || String(err))); };
+  $('usageClose').onclick = () => $('usageOverlay').classList.add('hidden');
   $('wizardBtn').onclick = () => openWizard();
   $('wizardClose').onclick = () => $('wizardOverlay').classList.add('hidden');
   $('wzParentPick').onclick = async () => {

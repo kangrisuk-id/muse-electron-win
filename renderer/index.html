@@ -23,6 +23,7 @@
     <button id="workspaceBtn" class="ghost">📁 Workspace</button>
     <span id="workspacePath" class="workspace-path">belum dipilih</span>
     <button id="wizardBtn" class="ghost">✦ Bounty Baru</button>
+    <button id="usageBtn" class="ghost">📊 Sesi &amp; Biaya</button>
     <button id="makefunBtn" class="ghost">make.fun</button>
     <button id="settingsBtn" class="gold">Settings</button>
   </div>
@@ -122,6 +123,22 @@
     </div>
     <div id="mfSummary" class="mf-summary hidden"></div>
     <pre id="mfLog" class="mf-log"></pre>
+  </div>
+</div>
+
+<div id="usageOverlay" class="hidden">
+  <div id="usagePanel">
+    <div class="settings-head">
+      <h2>Sesi &amp; Biaya — Usage Token</h2>
+      <button id="usageClose" class="ghost">✕</button>
+    </div>
+    <p class="hint">Dihitung dari rekaman sesi lokal (<code>message.usage</code>). Biaya adalah <b>estimasi</b> dari harga publik per 1 jt token — bukan tagihan; tier gratis, kredit, dan perubahan harga tidak tercermin. Model tanpa harga tercatat tampil sebagai "belum terharga", bukan $0.</p>
+    <div id="usageOverview" class="usage-cards"></div>
+    <div class="side-title">Sesi ini</div>
+    <div id="usageCurrent" class="mf-summary"></div>
+    <div id="usageTurns"></div>
+    <div class="side-title">Semua sesi</div>
+    <div id="usageSessions"></div>
   </div>
 </div>
 

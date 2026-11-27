@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('api', {
   newSession: () => ipcRenderer.invoke('session:new'),
   listSessions: () => ipcRenderer.invoke('session:list'),
   loadSession: (id) => ipcRenderer.invoke('session:load', id),
+  getSessionUsage: (id) => ipcRenderer.invoke('session:usage', id),
+  getUsageOverview: () => ipcRenderer.invoke('session:usageOverview'),
   sendChat: (text) => ipcRenderer.invoke('chat:send', text),
   abortChat: () => ipcRenderer.invoke('chat:abort'),
   pickParentDir: () => ipcRenderer.invoke('wizard:pickParent'),

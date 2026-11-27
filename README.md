@@ -130,6 +130,28 @@ jalur submit sendiri belum pernah dijalankan dari aplikasi ini.
   maupun symlink. `run_command` berjalan dengan cwd = root workspace;
   cwd yang diminta di luar workspace ditolak. Tidak ada bypass.
 
+## Panel sesi & biaya (Stage 4)
+
+- **Modul `src/usage.js`** (murni, tanpa I/O) membaca usage dari rekaman
+  sesi — bentuk sekarang (`message.usage`) maupun v1 (`usage` level atas
+  bentuk OpenAI) — dan merangkum per sesi: token masuk/keluar, token
+  cache, jumlah pesan user, turn asisten, tool call/result, durasi,
+  rincian per model, dan tabel per turn.
+- **Estimasi biaya** dari tabel harga publik per 1 jt token di modul
+  yang sama (Gemini, OpenAI, OpenRouter; model NVIDIA NIM hosted
+  tercatat $0 karena endpoint dev-nya gratis). Ini **estimasi, bukan
+  tagihan**: tier gratis/kredit/perubahan harga tidak tercermin. Model
+  yang tidak ada di tabel dilaporkan sebagai *belum terharga*
+  (tokennya dihitung terpisah), tidak pernah dipalsukan jadi $0.
+- **Panel "📊 Sesi & Biaya"** di header menampilkan kartu total semua
+  sesi (token, estimasi, jumlah sesi), rincian sesi yang sedang aktif
+  beserta tabel per turn-nya, dan daftar semua sesi dengan total
+  masing-masing — klik satu sesi di daftar untuk membukanya. Item sesi
+  di sidebar kini juga menampilkan total token + estimasi biayanya.
+- IPC baru: `session:usage` (satu sesi) dan `session:usageOverview`
+  (agregat + semua sesi), lewat jembatan preload `getSessionUsage` /
+  `getUsageOverview`.
+
 ## Roadmap v2
 
 - Mesin OpenCode terintegrasi sebagai jalur agent alternatif yang transkripnya
@@ -149,6 +171,7 @@ src/agent.js            agent loop (tool calling)
 src/store.js            settings.json di userData
 src/makefun.js          pipeline make.fun (bundle/check/submit via CLI kit)
 src/wizard.js           wizard "Bounty Baru" (scaffold proyek + git init)
+src/usage.js            ringkasan usage token + estimasi biaya per sesi (Stage 4)
 renderer/               UI chat murni HTML/CSS/JS (tema charcoal + gold)
 assets/makefun-rules.txt  salinan rules make.fun untuk Mode make.fun
 test/                   uji unit Node

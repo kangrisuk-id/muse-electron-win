@@ -33,6 +33,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { summarizeEntries } = require('./usage');
 
 const HARNESS_NAME = 'muse-agent-desktop';
 
@@ -451,6 +452,15 @@ class SessionStore {
           (e) => e.type === 'assistant'
             || (e.type === 'user' && e.message && !isToolResultContent(e.message.content))
         ).length,
+        // Stage 4: per-session usage totals for the sidebar + panel.
+        usage: (() => {
+          const s = summarizeEntries(entries);
+          return {
+            inputTokens: s.inputTokens, outputTokens: s.outputTokens,
+            totalTokens: s.totalTokens, costUSD: s.costUSD,
+            unpricedTokens: s.unpricedTokens, toolCalls: s.toolCalls,
+          };
+        })(),
         preview: firstUser ? textOfContent(firstUser.message.content).slice(0, 80) : '',
       });
     }

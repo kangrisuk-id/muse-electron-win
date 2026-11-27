@@ -22,6 +22,7 @@ const { SessionStore, historyFromEntries, uiMessagesFromEntries } = require('./s
 const { createToolRunner } = require('./src/tools');
 const { runAgentTurn } = require('./src/agent');
 const makefun = require('./src/makefun');
+const { summarizeEntries, summarizeSessions } = require('./src/usage');
 const { createBountyProject, DEFAULT_WALLET } = require('./src/wizard');
 
 let win = null;
@@ -146,6 +147,29 @@ ipcMain.handle('session:new', () => {
 });
 
 ipcMain.handle('session:list', () => sessionStore.list());
+
+/* --------------------- Stage 4: sesi & biaya --------------------------- */
+
+ipcMain.handle('session:usage', (_evt, id) => {
+  const target = id || (currentSession && currentSession.meta && currentSession.meta.id);
+  if (!target) return null;
+  const entries = sessionStore.load(target);
+  const meta = sessionStore.meta(target);
+  if (!meta) return null;
+  return { meta, summary: summarizeEntries(entries) };
+});
+
+ipcMain.handle('session:usageOverview', () => {
+  const items = sessionStore.list().map((s) => {
+    const entries = sessionStore.load(s.id);
+    return {
+      id: s.id, createdAt: s.createdAt, cwd: s.cwd,
+      provider: s.provider, model: s.model, preview: s.preview,
+      summary: summarizeEntries(entries),
+    };
+  });
+  return { overview: summarizeSessions(items), sessions: items };
+});
 
 ipcMain.handle('session:load', (_evt, id) => {
   const entries = sessionStore.load(id);
