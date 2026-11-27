@@ -208,7 +208,8 @@ async function openUsage() {
       '<div class="s-meta">' + esc(when) + ' · ' + esc(it.provider || '') + '/' + esc(it.model || '') + '</div>' +
       '<div class="s-meta">' + fmtTokens(s.totalTokens) + ' token · ' + fmtUSD(s.costUSD) +
       (s.unpricedTokens ? ' · ' + fmtTokens(s.unpricedTokens) + ' belum terharga' : '') +
-      ' · ' + s.toolCalls + ' tool · ' + fmtDuration(s.durationMs) + '</div></div>';
+      ' · ' + s.toolCalls + ' tool · ' + fmtDuration(s.durationMs) + '</div>' +
+      '<button class="ghost" data-export-session="' + esc(it.id) + '">⬇ Ekspor .md</button></div>';
   }).join('');
   $('usageSessions').innerHTML = items || '<p class="hint">Belum ada sesi tersimpan.</p>';
   document.querySelectorAll('[data-usage-session]').forEach((el) => {
@@ -217,7 +218,39 @@ async function openUsage() {
       await loadSession(el.getAttribute('data-usage-session'));
     };
   });
+  document.querySelectorAll('[data-export-session]').forEach((el) => {
+    el.onclick = async (ev) => {
+      ev.stopPropagation();
+      const saved = await window.api.exportSession(el.getAttribute('data-export-session'));
+      if (saved) addMessage('system', 'Sesi diekspor ke: ' + saved);
+    };
+  });
   $('usageOverlay').classList.remove('hidden');
+}
+
+/* Stage 10: search across all recorded sessions. */
+async function runSessionSearch() {
+  const q = $('searchInput').value.trim();
+  const box = $('searchResults');
+  if (!q) { box.innerHTML = ''; return; }
+  const results = await window.api.searchSessions(q);
+  if (!results.length) {
+    box.innerHTML = '<p class="hint">Tidak ada sesi yang cocok dengan "' + esc(q) + '".</p>';
+    return;
+  }
+  box.innerHTML = results.map((r) =>
+    '<div class="session-item" data-usage-session="' + esc(r.id) + '">' +
+    '<div class="s-meta">' + esc(r.createdAt ? new Date(r.createdAt).toLocaleString('id-ID') : '') +
+    ' · ' + esc(r.provider || '') + '/' + esc(r.model || '') + ' · ' + r.matches.length + ' cocok</div>' +
+    r.matches.map((mt) =>
+      '<div class="s-preview">[' + esc(mt.role) + '] ' + esc(mt.snippet) + '</div>').join('') +
+    '</div>').join('');
+  box.querySelectorAll('[data-usage-session]').forEach((el) => {
+    el.onclick = async () => {
+      $('usageOverlay').classList.add('hidden');
+      await loadSession(el.getAttribute('data-usage-session'));
+    };
+  });
 }
 
 /* --------------------------- Stage 5a: git ----------------------------- */
@@ -759,6 +792,10 @@ async function init() {
   window.api.onMakefunLog((evt) => mfLog(evt.line, evt.stream === 'stderr'));
   $('usageBtn').onclick = () => { openUsage().catch((err) => addMessage('error', err.message || String(err))); };
   $('usageClose').onclick = () => $('usageOverlay').classList.add('hidden');
+  $('searchBtn').onclick = () => { runSessionSearch().catch((err) => addMessage('error', err.message || String(err))); };
+  $('searchInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); runSessionSearch().catch(() => {}); }
+  });
   $('gitBtn').onclick = () => { openGit().catch((err) => addMessage('error', err.message || String(err))); };
   $('gitClose').onclick = () => $('gitOverlay').classList.add('hidden');
   $('gitRefreshBtn').onclick = () => { refreshGit().catch((err) => { $('gitSummary').textContent = 'Error: ' + err.message; }); };

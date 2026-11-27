@@ -244,6 +244,20 @@ jalur submit sendiri belum pernah dijalankan dari aplikasi ini.
   chat mengalir langsung di renderer dan diselesaikan oleh event
   `assistant` final dengan teks lengkap.
 
+## Cari & ekspor sesi (Stage 10)
+
+- **`src/search.js`** — pencarian teks di semua sesi tersimpan dari
+  panel Sesi & Biaya: kueri multi-kata bersifat AND dan tidak peka
+  huruf besar/kecil; yang dicari mencakup teks pesan, nama tool
+  (kedua bentuknya: nama rekaman gaya Claude `Write`/`Bash` maupun
+  nama tool aplikasi `write_file`/`run_command`), input tool, dan
+  hasil tool. Klik hasil untuk membuka sesi itu.
+- **Ekspor Markdown:** tombol "⬇ Ekspor .md" pada tiap sesi
+  menghasilkan dokumen terbaca — metadata sesi, giliran Kamu/Agent,
+  panggilan tool (JSON), dan hasil tool. Hasil/input yang panjang
+  dipotong dengan penanda eksplisit "…(dipotong untuk ekspor)";
+  tidak ada yang hilang diam-diam.
+
 ## Roadmap v2
 
 - Mesin OpenCode terintegrasi sebagai jalur agent alternatif yang transkripnya
@@ -268,6 +282,7 @@ src/git.js              git bawaan: status/log/diff/commit di workspace (Stage 5
 src/tournament.js       turnamen kandidat: prompt/parse/ranking/penyimpanan (Stage 5)
 src/secrets.js          enkripsi API key di disk via safeStorage OS (Stage 6)
 src/permissions.js      gerbang izin tool: mode tanya/bebas + grant sesi & permanen (Stage 7)
+src/search.js           pencarian lintas sesi + ekspor Markdown (Stage 10)
 renderer/               UI chat murni HTML/CSS/JS (tema charcoal + gold)
 assets/makefun-rules.txt  salinan rules make.fun untuk Mode make.fun
 test/                   uji unit Node

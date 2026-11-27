@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('api', {
   newSession: () => ipcRenderer.invoke('session:new'),
   listSessions: () => ipcRenderer.invoke('session:list'),
   loadSession: (id) => ipcRenderer.invoke('session:load', id),
+  searchSessions: (query) => ipcRenderer.invoke('session:search', query),
+  exportSession: (id) => ipcRenderer.invoke('session:export', id),
   getSessionUsage: (id) => ipcRenderer.invoke('session:usage', id),
   getUsageOverview: () => ipcRenderer.invoke('session:usageOverview'),
   gitInfo: () => ipcRenderer.invoke('git:info'),

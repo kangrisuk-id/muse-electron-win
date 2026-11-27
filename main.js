@@ -37,6 +37,7 @@ const tournament = require('./src/tournament');
 const { chatCompletion } = require('./src/providers');
 const { createBountyProject, DEFAULT_WALLET } = require('./src/wizard');
 const { PermissionGate } = require('./src/permissions');
+const { searchSessions, sessionToMarkdown } = require('./src/search');
 
 let win = null;
 let settings = null;
@@ -225,6 +226,27 @@ ipcMain.handle('session:new', () => {
 });
 
 ipcMain.handle('session:list', () => sessionStore.list());
+
+/* --------------------- Stage 10: cari & ekspor sesi -------------------- */
+
+ipcMain.handle('session:search', (_evt, query) => searchSessions(sessionStore, String(query || '')));
+
+ipcMain.handle('session:export', async (_evt, id) => {
+  const target = id || (currentSession && currentSession.meta && currentSession.meta.id);
+  if (!target) return null;
+  const meta = sessionStore.meta(target);
+  if (!meta) return null;
+  const markdown = sessionToMarkdown(meta, sessionStore.load(target));
+  const stamp = String(meta.createdAt || '').slice(0, 10) || 'sesi';
+  const result = await dialog.showSaveDialog(win, {
+    title: 'Ekspor sesi ke Markdown',
+    defaultPath: 'muse-sesi-' + stamp + '-' + String(target).slice(0, 8) + '.md',
+    filters: [{ name: 'Markdown', extensions: ['md'] }],
+  });
+  if (result.canceled || !result.filePath) return null;
+  fs.writeFileSync(result.filePath, markdown, 'utf8');
+  return result.filePath;
+});
 
 /* --------------------- Stage 4: sesi & biaya --------------------------- */
 
