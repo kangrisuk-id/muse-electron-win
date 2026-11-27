@@ -8,7 +8,12 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { createBountyProject, DEFAULT_WALLET } = require('../src/wizard');
 
-const RULES_SOURCE = path.join(os.homedir(), 'workspace', 'makefun-agent-rules', '.clinerules');
+// Self-contained rules fixture: the real source of truth lives in the
+// user's home workspace, which CI runners do not have — depending on it
+// made this suite fail on any other machine (GitHub Actions, Windows).
+const FIXTURE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'muse-wizard-rules-'));
+const RULES_SOURCE = path.join(FIXTURE_DIR, '.clinerules');
+fs.writeFileSync(RULES_SOURCE, '# Aturan uji wizard\nBaris kedua aturan.\n', 'utf8');
 
 function tempParent() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'muse-wizard-'));

@@ -154,7 +154,8 @@ test('tool blocks round-trip back to app tool calls with relative paths', () => 
   const back = toolCallFromBlock(block, ws);
   assert.equal(back.id, 'c9');
   assert.equal(back.function.name, 'edit_file');
-  assert.deepEqual(JSON.parse(back.function.arguments), { path: 'a/b.py', old_text: 'x', new_text: 'y' });
+  // Relative paths come back with the platform separator (\ on Windows).
+  assert.deepEqual(JSON.parse(back.function.arguments), { path: path.join('a', 'b.py'), old_text: 'x', new_text: 'y' });
 });
 
 test('a recorded v2 session loads back into history and UI messages', () => {
